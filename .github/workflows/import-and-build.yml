@@ -38,6 +38,9 @@ jobs:
           find . -type d -name __pycache__ -prune -exec rm -rf {} +
           test -f .github/workflows/xnu.yml
           test -f tools/validate-repo.py
+          # The GitHub App token cannot push workflow files; install xnu.yml separately via the connected app.
+          cp .github/workflows/xnu.yml /tmp/xnu.yml
+          rm -f .github/workflows/xnu.yml
           echo "Project files imported:"
           find . -maxdepth 2 -type f | sort | head -100
 
@@ -55,13 +58,3 @@ jobs:
             git push
           fi
 
-      - name: Launch XNU build workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run xnu.yml --ref main \
-            -f macos_version=13.5 \
-            -f kernel_config=DEVELOPMENT \
-            -f machine_config=INSTANTNOODLE \
-            -f keep_going=true
-          echo "XNU workflow dispatch requested."
