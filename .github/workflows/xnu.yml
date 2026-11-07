@@ -15,6 +15,22 @@ on:
       keep_going:
         description: make -k (collect all compile errors in one run)
         default: "true"
+  pull_request:
+    branches: [main]
+    paths:
+      - "xnu/patches/**"
+      - "tools/validate-repo.py"
+      - "tools/mk-wlfw-header.py"
+      - "tools/mk-ath11k.sh"
+      - "tools/xnu-series-file.py"
+      - "tools/mkadt-in2013.py"
+      - "tools/mkpayload.py"
+      - "tools/repack-boot-v2.py"
+      - "shim/**"
+      - "device/**"
+      - "board/**"
+      - "wifi/**"
+      - ".github/workflows/xnu.yml"
   push:
     branches: [main]
     paths:
