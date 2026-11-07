@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "target": {
+    "marketing_name": "OnePlus 8",
+    "model": "IN2013",
+    "codename": "instantnoodle",
+    "region": "EEA",
+    "android_build_at_audit": "IN2013_13.1.0.593(EX01)",
+    "android_incremental_at_audit": "Q.2058945_6c3fb-7d8c1b"
+  },
+  "soc": {
+    "name": "Qualcomm Snapdragon 865",
+    "platform": "kona",
+    "soc_id": "SM8250",
+    "architecture": "arm64",
+    "cpu": "Kryo 585",
+    "cpu_cores": 8,
+    "gpu": "Qualcomm Adreno 650",
+    "ram_installed_bytes": 8589934592,
+    "ram_observed_memtotal_kib": 7708708
+  },
+  "boot": {
+    "bootloader_unlocked_confirmed": true,
+    "magisk_root_confirmed": true,
+    "active_android_slot_at_audit": "_b",
+    "psci_method": "smc"
+  },
+  "gic": {
+    "compatible": "arm,gic-v3",
+    "distributor_base": "0x17A00000",
+    "distributor_size": "0x10000",
+    "redistributor_base": "0x17A60000",
+    "redistributor_size": "0x100000",
+    "redistributor_stride": "0x20000",
+    "virtual_timer_ppi_index": 11,
+    "virtual_timer_intid": 27,
+    "ipi_sgi_intid_candidate": 1
+  },
+  "timer": {
+    "compatible": "arm,armv8-timer",
+    "frequency_hz": 19200000,
+    "interrupt_ppi_indices_in_dts_order": [13, 14, 11, 12],
+    "virtual_timer_ppi_index": 11,
+    "virtual_timer_intid": 27
+  },
+  "display": {
+    "vendor": "Samsung",
+    "panel": "AMB655UV01",
+    "dts_panel_symbol": "dsi_oplus19101samsung_amb655uv01_1080_2400_cmd",
+    "resolution": [1080, 2400],
+    "refresh_rates_hz": [60, 90],
+    "interface": "MIPI-DSI",
+    "mode": "command mode",
+    "dsi_lane_map": "lane_map_0123",
+    "framebuffer_base": null,
+    "framebuffer_format": null,
+    "notes": "Use bootloader GOP/framebuffer handoff for first console; panel reinitialization is a separate milestone."
+  },
+  "touch": {
+    "vendor": "Samsung",
+    "controller": "S6SY771",
+    "bus": "I2C",
+    "controller_bus_node": "qupv3_se13_i2c",
+    "i2c_address_hex": "0x48",
+    "interrupt_tlmm_gpio": 39,
+    "reset_tlmm_gpio": 38,
+    "tx_rx": [16, 36],
+    "max_contacts": 10,
+    "linux_compatible": "sec-s6sy771",
+    "notes": "Do not use the Mi 10T Novatek NT36675 SPI driver."
+  },
+  "storage": {
+    "type": "UFS 3.0",
+    "controller_base": null,
+    "notes": "Read the active OnePlus device tree before selecting/registering a controller driver."
+  },
+  "open_questions": [
+    "Live FDT/ADT and exact DRAM banks",
+    "Reserved-memory map and bootloader memory map",
+    "Framebuffer address, stride, pixel format and ownership after ExitBootServices",
+    "UFS controller base, quirks and partition map",
+    "GPU GMU/SQE/ZAP firmware names, reserved region and TrustZone calls",
+    "PMIC/display rail sequence for a native panel driver",
+    "Whether the 8T UEFI port can be reused without its board-specific assumptions"
+  ]
+}

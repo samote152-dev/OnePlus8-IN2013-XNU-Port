@@ -1,0 +1,64 @@
+[target]
+name = "oneplus-8-instantnoodle"
+marketing_name = "OnePlus 8"
+model = "IN2013"
+codename = "instantnoodle"
+architecture = "arm64"
+
+[os]
+userland_requested_by_user = "16.5"
+repo_reference_profile = "16.7.16 / 20H392"
+xnu_source = "xnu-8796.141.3"
+compatibility_status = "not yet verified; keep the repo's 8796.141.3 base and do not silently switch userland"
+identity = "iPhone10,3 / D22AP compatibility profile in the existing Apollo project"
+
+[soc]
+platform = "kona"
+soc = "SM8250"
+gpu = "Adreno 650"
+cpu_cores = 8
+
+[gic]
+version = 3
+distributor_base = "0x17A00000"
+redistributor_base = "0x17A60000"
+redistributor_size = "0x100000"
+redistributor_stride = "0x20000"
+virtual_timer_ppi_index = 11
+virtual_timer_intid = 27
+ipi_sgi = 1
+
+[display]
+panel = "Samsung AMB655UV01"
+resolution = "1080x2400"
+interface = "MIPI-DSI"
+mode = "command"
+framebuffer_reserved_base = "0x9C000000"
+framebuffer_reserved_size = "0x02300000"
+stride_assumption = 4320
+pixel_format_assumption = "32-bit A8R8G8B8; confirm from ABL handoff before display writes"
+
+[touch]
+controller = "Samsung S6SY771"
+bus = "I2C"
+bus_node = "qupv3_se13_i2c"
+engine_base = "0x00A94000"
+engine_size = "0x4000"
+wrapper_base = "0x00AC0000"
+wrapper_size = "0x2000"
+address = "0x48"
+irq_gpio = 39
+reset_gpio = 38
+max_contacts = 10
+status = "portable protocol/HID bridge passes host tests; XNU bus/clock/pinctrl/IRQ integration deferred"
+
+[ufs]
+controller_base = "0x01D84000"
+controller_size = "0x3000"
+status = "base confirmed in live DTB and root audit; XNU UFS driver not yet boot-tested"
+
+[memory]
+source = "instantnoodle-live.dtb"
+managed_window_base = "0x100000000"
+managed_window_size = "0x100000000"
+status = "conservative 4 GiB window inside contiguous live-FDT RAM; reserved-memory above 4 GiB not observed"

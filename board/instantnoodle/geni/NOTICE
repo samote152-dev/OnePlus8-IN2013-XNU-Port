@@ -1,0 +1,22 @@
+NativeGeniI2c
+Copyright (c) 2026, UniXNU contributors.
+
+This implementation is licensed under BSD-2-Clause-Patent. The following
+GPL-2.0 reference sources were consulted for hardware register meanings and
+GENI command sequences. Their original licenses remain unchanged:
+
+Samsung SM7325 kernel:
+https://github.com/Bush-cat/android_kernel_samsung_sm7325
+drivers/i2c/busses/i2c-msm-geni.c
+drivers/i2c/busses/i2c-qcom-geni.c
+include/linux/qcom-geni-se.h
+drivers/soc/qcom/qcom-geni-se.c
+
+Facts used: I2C firmware protocol number, FIFO packing and depth, master command
+opcodes, address/STOP_STRETCH fields, IRQ errors, cancel/abort completion, and
+19.2-MHz source timing tables. The software GPIO host implements standard I2C
+signaling through board-supplied open-drain pin operations.
+
+The device repository supplies SM-T733 SE10 addresses, GPIO40/41 pin selection,
+clock votes and MAX77816 register settings. No firmware or device-tree binary
+is distributed in this module.

@@ -1,0 +1,7 @@
+IN2013 XNU HID Bridge v5
+- Portable bridge lifecycle and IRQ dispatch: implemented
+- Host tests: included, not yet run on user's PC
+- XNU IOKit integration: NOT implemented
+- SM8250 GENI MMIO backend: NOT implemented
+- Hardware validation: NOT performed
+- Phone modification/flash: none

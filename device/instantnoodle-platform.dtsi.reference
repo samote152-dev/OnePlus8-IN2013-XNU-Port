@@ -1,0 +1,39 @@
+/*
+ * OnePlus 8 IN2013 / instantnoodle — hardware reference fragment.
+ * This is a DESIGN NOTE / Linux-DTS-derived profile, NOT a complete DTB
+ * and NOT an Apple ADT. Values must be checked against the live FDT before
+ * feeding any generated platform tree to XNU.
+ */
+
+/ {
+    model = "OnePlus 8 IN2013 (instantnoodle)";
+    compatible = "oneplus,instantnoodle", "qcom,kona";
+
+    /* Source DTS: GICv3. */
+    interrupt-controller@17a00000 {
+        compatible = "arm,gic-v3";
+        reg = <0x0 0x17a00000 0x0 0x10000>,
+              <0x0 0x17a60000 0x0 0x100000>;
+        redistributor-stride = <0x0 0x20000>;
+        #interrupt-cells = <3>;
+        interrupt-controller;
+    };
+
+    /* Source DTS: architected timer order = secure phys, phys, virt, hyp. */
+    timer {
+        compatible = "arm,armv8-timer";
+        interrupts = <1 13 4>, <1 14 4>, <1 11 4>, <1 12 4>;
+        clock-frequency = <19200000>;
+    };
+
+    psci {
+        compatible = "arm,psci-1.0";
+        method = "smc";
+    };
+};
+
+/*
+ * Display/touch are deliberately not emitted as enabled native drivers here:
+ * the Samsung AMB655UV01 DSI panel and S6SY771 I2C touch controller need
+ * dedicated XNU/IOKit implementations and verified power/clock sequencing.
+ */
