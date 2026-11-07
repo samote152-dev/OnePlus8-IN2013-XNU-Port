@@ -16,7 +16,7 @@ on:
         description: make -k (collect all compile errors in one run)
         default: "true"
   push:
-    branches: [main]
+    branches: [main, diagnostic/in2013-build-fix]
     paths:
       - "xnu/patches/**"
       - "tools/validate-repo.py"
