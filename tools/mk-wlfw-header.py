@@ -116,6 +116,7 @@ def main() -> int:
         "typedef uint16_t u16;",
         "typedef uint32_t u32;",
         "typedef uint64_t u64;",
+        "typedef uint32_t __le32;",
         '#include "hakios.qmi.h"',
         "",
         '#define WLFW_CHIP "QCA6390"',
