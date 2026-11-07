@@ -195,6 +195,9 @@ new file mode 100644
 + */
 +#ifndef SWEET_HFS_COMPAT_H
 +#define SWEET_HFS_COMPAT_H
++#include "core/kext-config.h"
++
++/* Override iOS kext defaults: this board has no AppleKeyStore or decmpfs. */
 +#undef BSD_KERNEL_PRIVATE
 +#undef XNU_KERNEL_PRIVATE
 +#undef CONFIG_PROTECT
@@ -207,7 +210,6 @@ new file mode 100644
 +#undef NAMEDSTREAMS
 +#undef FIFO
 +#undef HFS_COMPRESSION
-+#include "core/kext-config.h"
 +
 +/* Built in, not a loadable kext (see sweet_hfs_iokit.c). */
 +#define OSKextGetCurrentLoadTag sweet_hfs_current_load_tag
