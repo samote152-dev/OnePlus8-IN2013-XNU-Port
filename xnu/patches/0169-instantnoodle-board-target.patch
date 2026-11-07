@@ -125,7 +125,7 @@ index 0000000..828a870
 +######################################################################
 +#
 +machine		"arm64"						# <arm64>
-+
+
 +makeoptions	OSFMK_MACHINE = "arm64"				# <mach>
 +
 +options		COUNT_SYSCALLS		# count bsd system calls 	# <countcalls>
@@ -261,7 +261,7 @@ diff --git a/pexpert/pexpert/arm64/board_config.h b/pexpert/pexpert/arm64/board_
 index 88e524a..0b96898 100644
 --- a/pexpert/pexpert/arm64/board_config.h
 +++ b/pexpert/pexpert/arm64/board_config.h
-@@ -97,7 +97,17 @@
+@@ -97,7 +97,54 @@
  #define CORE_NCTRS                     8 /* Placeholder; KPC is not enabled for this target */
  #endif  /* ARM64_BOARD_CONFIG_BCM2837 */
  
