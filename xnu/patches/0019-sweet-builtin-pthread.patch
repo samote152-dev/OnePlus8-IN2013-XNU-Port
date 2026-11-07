@@ -23,9 +23,9 @@ diff --git a/bsd/conf/Makefile.template b/bsd/conf/Makefile.template
 +ifneq ($(filter SWEET INSTANTNOODLE,$(CURRENT_MACHINE_CONFIG)),)
 +SWEET_PTHREAD_ROOT = $(SRCROOT)/bsd/pthread/sweet_libpthread
 +SWEET_PTHREAD_INC = -I$(SWEET_PTHREAD_ROOT) -I$(SWEET_PTHREAD_ROOT)/private -I$(SWEET_PTHREAD_ROOT)/include
-+sweet_pthread_init.o_INCFLAGS = $(SWEET_PTHREAD_INC)
-+sweet_pthread_support.o_INCFLAGS = $(SWEET_PTHREAD_INC)
-+sweet_pthread_synch.o_INCFLAGS = $(SWEET_PTHREAD_INC)
++sweet_pthread_init.o_CFLAGS_ADD += $(SWEET_PTHREAD_INC)
++sweet_pthread_support.o_CFLAGS_ADD += $(SWEET_PTHREAD_INC)
++sweet_pthread_synch.o_CFLAGS_ADD += $(SWEET_PTHREAD_INC)
 +endif
  
  #
