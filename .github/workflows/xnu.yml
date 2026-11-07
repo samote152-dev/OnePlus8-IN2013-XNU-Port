@@ -1,4 +1,5 @@
 name: xnu
+# CI validates the ordered XNU patch series before attempting the kernel build.
 
 on:
   workflow_dispatch:
