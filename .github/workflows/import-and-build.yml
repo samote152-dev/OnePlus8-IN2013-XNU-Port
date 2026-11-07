@@ -1,0 +1,67 @@
+name: Import project and launch XNU build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Extract project archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s OnePlus8-IN2013-XNU-Port.zip
+          mkdir -p _project
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile("OnePlus8-IN2013-XNU-Port.zip") as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f"Archive integrity error: {bad}")
+              z.extractall("_project")
+          PY
+          root="_project/OnePlus8-IN2013-XNU-Port"
+          test -d "$root"
+          cp -a "$root/." .
+          rm -rf _project
+          rm -f OnePlus8-IN2013-XNU-Port.zip
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          test -f .github/workflows/xnu.yml
+          test -f tools/validate-repo.py
+          echo "Project files imported:"
+          find . -maxdepth 2 -type f | sort | head -100
+
+      - name: Commit extracted project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No extracted project changes to commit."
+          else
+            git commit -m "Import OnePlus 8 IN2013 XNU port project"
+            git push
+          fi
+
+      - name: Launch XNU build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run xnu.yml --ref main \
+            -f macos_version=13.5 \
+            -f kernel_config=DEVELOPMENT \
+            -f machine_config=INSTANTNOODLE \
+            -f keep_going=true
+          echo "XNU workflow dispatch requested."
