@@ -306,7 +306,6 @@ index 88e524a..0b96898 100644
 +#define GICR_WAKER_CHILDRENASLEEP 0x4
 +#define ICC_CTLR_EOIMODE          0x2
 +#define ICC_SRE_SRE               0x1
-NaN
 +#define MAX_L2_CLINE                   6
 +#define MAX_CPUS                       8
 +#define MAX_CPU_CLUSTERS               1
