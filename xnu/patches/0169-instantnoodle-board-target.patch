@@ -30,7 +30,7 @@ new file mode 100644
 index 0000000..828a870
 --- /dev/null
 +++ b/config/MASTER.arm64.instantnoodle
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,114 @@
 +#
 +# instantnoodle (OnePlus 8 IN2013, SM8250): MASTER.arm64.MacOSX plus the open-source
 +# arm64 assembly and pmap (nos_arm_asm, nos_arm_pmap). Apple's own SoC configs
