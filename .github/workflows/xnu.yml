@@ -67,7 +67,7 @@ jobs:
           grep -c 'VALID_ARCHS="x86_64 arm64e arm64"' dxb/build.sh
           ls dxb/patches
       - name: WLFW message header (ath11k of Linux 7.0.14)
-        if: env.MACHINE_CONFIG == 'SWEET'
+        if: env.MACHINE_CONFIG == 'SWEET' || env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |
           mkdir -p ath11k
           base=https://raw.githubusercontent.com/gregkh/linux/v7.0.14/drivers/net/wireless/ath/ath11k
