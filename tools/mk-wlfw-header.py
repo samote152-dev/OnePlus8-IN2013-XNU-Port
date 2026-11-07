@@ -108,7 +108,7 @@ def main() -> int:
         "#ifndef SWEET_WLFW_ATH11K_H",
         "#define SWEET_WLFW_ATH11K_H",
         "",
-        "#include <limits.h>",
+        "/* XNU kernel build uses -nostdinc; do not include libc limits.h. */",
         "#include <stddef.h>",
         "#include <stdint.h>",
         '#include "hakios.qmi.h"',
