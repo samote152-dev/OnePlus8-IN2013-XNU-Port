@@ -185,7 +185,7 @@ diff --git a/bsd/sweet_hfs/sweet_hfs_compat.h b/bsd/sweet_hfs/sweet_hfs_compat.h
 new file mode 100644
 --- /dev/null
 +++ b/bsd/sweet_hfs/sweet_hfs_compat.h
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,27 @@
 +/*
 + * Compile Apple's HFS kext sources inside SWEET the way the kext is built:
 + * with the kext (KPI) view of the kernel headers, and with only HFS's own
@@ -213,6 +213,7 @@ new file mode 100644
 +
 +/* Built in, not a loadable kext (see sweet_hfs_iokit.c). */
 +#define OSKextGetCurrentLoadTag sweet_hfs_current_load_tag
++#endif /* SWEET_HFS_COMPAT_H */
 +#endif
 diff --git a/bsd/sweet_hfs/sweet_hfs_iokit.c b/bsd/sweet_hfs/sweet_hfs_iokit.c
 new file mode 100644
