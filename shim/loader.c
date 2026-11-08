@@ -123,12 +123,15 @@ const char *loader_boot(uintptr_t dtb)
 	ba->physBase = p->phys_base;
 	ba->memSize = p->mem_size;
 	ba->topOfKernelData = top;
+#ifndef SWEET_QEMU
+	/* IN2013 ABL framebuffer handoff; QEMU virt has no matching display. */
 	ba->Video.v_baseAddr = FB_BASE;
 	ba->Video.v_display = 1;
 	ba->Video.v_rowBytes = FB_STRIDE;
 	ba->Video.v_width = FB_W;
 	ba->Video.v_height = FB_H;
 	ba->Video.v_depth = 32;
+#endif
 	ba->deviceTreeP = adt_pa - pa_of_va_base;	/* xnu reads it with the MMU on: a VA */
 	ba->deviceTreeLength = (uint32_t)p->adt_size;
 	for (int i = 0; i < BOOT_LINE_LENGTH; i++)
