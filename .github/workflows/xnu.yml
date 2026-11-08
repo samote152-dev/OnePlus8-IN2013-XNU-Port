@@ -218,9 +218,13 @@ jobs:
       - name: Build AArch64 boot shim
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          LLVM_BIN="$(brew --prefix llvm)/bin"
+          export PATH="$LLVM_BIN:$PATH"
+          for tool in clang llvm-objcopy llvm-readelf llvm-nm ld.lld; do
+            command -v "$tool"
+          done
           cd shim
-          CC=clang OBJCOPY=llvm-objcopy READELF=llvm-readelf NM=llvm-nm TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld bash ./build.sh
+          CC="$LLVM_BIN/clang" OBJCOPY="$LLVM_BIN/llvm-objcopy" READELF="$LLVM_BIN/llvm-readelf" NM="$LLVM_BIN/llvm-nm" TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld bash ./build.sh
           cp out/Image ../out/in2013/shim-Image
       - uses: actions/upload-artifact@v4
         if: always()
