@@ -1,0 +1,23 @@
+# INSTANTNOODLE is not an Apple macOS/iBoot Stage 2 target. Keep the Apple-only
+# firmware diagnostic out of model_dep.c for this board; pe_init.c does not
+# export iBoot_Stage_2_version under the same target-condition set.
+diff --git a/osfmk/arm/model_dep.c b/osfmk/arm/model_dep.c
+--- a/osfmk/arm/model_dep.c
++++ b/osfmk/arm/model_dep.c
+@@ -107,5 +107,5 @@
+ extern char iBoot_version[];
+-#if defined(TARGET_OS_OSX) && defined(__arm64__)
++#if defined(TARGET_OS_OSX) && defined(__arm64__) && !defined(INSTANTNOODLE)
+ extern char iBoot_Stage_2_version[];
+-#endif /* defined(TARGET_OS_OSX) && defined(__arm64__) */
++#endif /* defined(TARGET_OS_OSX) && defined(__arm64__) && !defined(INSTANTNOODLE) */
+ 
+@@ -465,7 +465,7 @@
+ 	paniclog_append_noflush("iBoot version: %.128s\\n", iBoot_version);
+-#if defined(TARGET_OS_OSX) && defined(__arm64__)
++#if defined(TARGET_OS_OSX) && defined(__arm64__) && !defined(INSTANTNOODLE)
+ 	paniclog_append_noflush("iBoot Stage 2 version: %.128s\\n", iBoot_Stage_2_version);
+-#endif /* defined(TARGET_OS_OSX) && defined(__arm64__) */
++#endif /* defined(TARGET_OS_OSX) && defined(__arm64__) && !defined(INSTANTNOODLE) */
+ 
+ 	paniclog_append_noflush("secure boot?: %s\\n", debug_enabled ? "NO": "YES");
