@@ -156,7 +156,10 @@ jobs:
           ls -l "$k"
           if [ "$MACHINE_CONFIG" = INSTANTNOODLE ]; then
             strings -a "$k" | grep -F 'oneplus,instantnoodle'
-            strings -a "$k" | grep -F 'IN2013: SM8250/UFS path active'
+            # Validate the actual target identity and compiled UFS root driver.
+            file "$k" | grep -E 'Mach-O.*arm64'
+            strings -a "$k" | grep -F 'SWEET UFS:'
+            strings -a "$k" | grep -F 'ufsroot0'
           else
             strings -a "$k" | grep -F 'the firmware has said "unified ready"'
             strings -a "$k" | grep -F 'THE DRIVER IS UP'
