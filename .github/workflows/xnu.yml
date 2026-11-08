@@ -255,7 +255,6 @@ jobs:
           (cd out && shasum -a 256 kernel.* > SHA256SUMS) || true
       - name: Fetch D22AP product tree from iOS 16.5 IPSW (HTTP range only)
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
-        continue-on-error: true
         timeout-minutes: 10
         run: |
           set -euo pipefail
