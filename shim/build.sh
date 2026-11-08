@@ -20,7 +20,8 @@ if [[ "${CC##*/}" == clang* ]]; then
     NM=${NM:-nm}
     OBJCOPY=${OBJCOPY:-llvm-objcopy}
 fi
-CFLAGS="${TARGET_FLAGS} -O2 -ffreestanding -nostdlib -fno-pic -fno-jump-tables -mgeneral-regs-only -mstrict-align -fno-stack-protector -Wall -Wextra"
+SHIM_DEFINES=${SHIM_DEFINES:-}
+CFLAGS="${TARGET_FLAGS} ${SHIM_DEFINES} -O2 -ffreestanding -nostdlib -fno-pic -fno-jump-tables -mgeneral-regs-only -mstrict-align -fno-stack-protector -Wall -Wextra"
 mkdir -p out
 for f in start.S shim.c console.c mmu.c fdt.c loader.c ufs.c; do
     $CC $CFLAGS -c "$f" -o "out/${f%.*}.o"
