@@ -12,6 +12,8 @@ userland_kernel_version = "Darwin 22.5.0 / xnu-8796.122.4~1"
 repo_reference_profile = "16.7.16 / 20H392"
 xnu_source = "xnu-8796.141.3"
 xnu_source_availability = "public apple-oss-distributions/xnu refs xnu-8796.122.4 and xnu-8796.122.4~1 returned 404 on 2026-11-08; exact source not verified"
+nearest_public_8796_tag = "xnu-8796.121.2"
+nearest_public_8796_tag_status = "closest public 8796-family tag; not identical to iOS 16.5 xnu-8796.122.4~1; not selected"
 compatibility_status = "run68 proves only the IN2013 bring-up build on 8796.141.3; iOS 16.5 compatibility is not proven; do not silently switch source"
 identity = "iPhone10,3 / D22AP compatibility profile in the existing Apollo project"
 
