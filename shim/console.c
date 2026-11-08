@@ -8,7 +8,7 @@
 #define UART_FBRD (*(volatile uint32_t *)(UART_BASE + 0x28))
 #define UART_LCRH (*(volatile uint32_t *)(UART_BASE + 0x2c))
 #define UART_CR   (*(volatile uint32_t *)(UART_BASE + 0x30))
-volatile uint32_t *con_fb = (volatile uint32_t *)FB_BASE;
+volatile uint32_t *con_fb = 0; /* QEMU uses UART, never the IN2013 framebuffer. */
 static int uart_ready;
 static void uart_init(void) {
     if (uart_ready) return;
@@ -36,10 +36,10 @@ void con_hex2(const char *label,const char *a,uint32_t va,const char *b,uint32_t
     if (b) { uart_puts(" "); uart_puts(b); fmt_hex(h,vb,8); uart_puts(h); }
     uart_putc('\n');
 }
-#else
+#elif defined(SWEET_FB_VERIFIED)
 /*
- * Minimal text console on the ABL splash framebuffer. With the MMU off
- * every access is Device memory, so stay aligned (-mstrict-align).
+ * Optional framebuffer console. Define SWEET_FB_VERIFIED only after the
+ * IN2013 ABL handoff confirms base, stride, pixel format and ownership.
  */
 #include "console.h"
 #include "font.h"
@@ -135,4 +135,18 @@ void con_hex2(const char *label, const char *a, uint32_t va, const char *b, uint
 	row++;
 }
 
-#endif /* SWEET_QEMU */
+#else
+/* Headless production default: the IN2013 framebuffer stride/format handoff
+ * has not been verified, so no MMIO writes to the splash region are allowed.
+ */
+#include "console.h"
+volatile uint32_t *con_fb;
+void con_clear(uint32_t bg) { (void)bg; }
+void con_skip(void) {}
+void con_str(const char *label, const char *s) { (void)label; (void)s; }
+void con_hex(const char *label, uint64_t value) { (void)label; (void)value; }
+void con_hex2(const char *label, const char *a, uint32_t va, const char *b, uint32_t vb)
+{
+    (void)label; (void)a; (void)va; (void)b; (void)vb;
+}
+#endif /* SWEET_QEMU || SWEET_FB_VERIFIED */
