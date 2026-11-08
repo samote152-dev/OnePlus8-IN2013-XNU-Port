@@ -26,7 +26,9 @@ Le 8 novembre 2026, les résolutions de refs dans `apple-oss-distributions/xnu` 
 - `xnu-8796.122.4~1` : 404, aucun commit pour cette ref ;
 - `xnu-8796.141.3` : ref résolue.
 
-Cela établit que les deux refs exactes ne sont pas disponibles sous ces noms dans le dépôt GitHub public consulté. Cela ne permet pas d'affirmer qu'aucune archive Apple distincte n'existe. Ne pas substituer arbitrairement 13.4 ou 13.5 et ne pas modifier la source de build tant que l'archive exacte n'est pas vérifiée.
+Une lecture paginée de `git/refs/tags` sur le dépôt public `apple-oss-distributions/xnu` a retourné les trois tags de la famille 8796 suivants : `xnu-8796.101.5`, `xnu-8796.121.2` et `xnu-8796.141.3`. Aucun tag `8796.122.4` ou `8796.122.4~1` n'est publié dans cette liste. Le tag public le plus proche en numéro est donc `8796.121.2`, mais il n'est pas identique à la source iOS 16.5 demandée.
+
+La documentation publique de recherche XNU indique aussi que les snapshots XNU spécifiques aux versions iOS ne sont pas publiés séparément comme sources iOS; Apple publie les snapshots macOS dans son dépôt OSS. Cela rend la source exacte iOS 16.5 indisponible dans le canal public Apple OSS vérifié, sans exclure une archive interne/non publique ou un miroir tiers non vérifié. Ne pas substituer arbitrairement 13.4 ou 13.5 et ne pas modifier la source de build tant qu'une source exacte ou une décision explicite de compatibilité n'est pas établie.
 
 ## ADT D22AP : identité seulement, pas matériel
 
