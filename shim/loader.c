@@ -123,8 +123,8 @@ const char *loader_boot(uintptr_t dtb)
 	ba->physBase = p->phys_base;
 	ba->memSize = p->mem_size;
 	ba->topOfKernelData = top;
-#ifndef SWEET_QEMU
-	/* IN2013 ABL framebuffer handoff; QEMU virt has no matching display. */
+#if defined(SWEET_FB_VERIFIED) && !defined(SWEET_QEMU)
+	/* Explicit opt-in only after ABL confirms the IN2013 framebuffer handoff. */
 	ba->Video.v_baseAddr = FB_BASE;
 	ba->Video.v_display = 1;
 	ba->Video.v_rowBytes = FB_STRIDE;
