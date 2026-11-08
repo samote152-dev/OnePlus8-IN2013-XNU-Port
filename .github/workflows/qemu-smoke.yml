@@ -30,7 +30,7 @@ jobs:
       - name: Install QEMU
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-arm clang lld llvm
+          sudo apt-get install -y qemu-system-arm clang llvm lld clang lld llvm
 
       - name: Wait for the XNU build from the integration branch
         env:
