@@ -30,6 +30,7 @@ on:
       - ".github/workflows/qemu-smoke.yml"
       - "tools/fetch-d22ap-product.py"
       - "tools/patch-dxb-kdk-download.py"
+      - "tools/check-instantnoodle-guards.py"
       - "tools/mkpayload.py"
       - "tools/repack-boot-v2.py"
       - "shim/**"
@@ -51,6 +52,7 @@ on:
       - ".github/workflows/qemu-smoke.yml"
       - "tools/fetch-d22ap-product.py"
       - "tools/patch-dxb-kdk-download.py"
+      - "tools/check-instantnoodle-guards.py"
       - "tools/mkpayload.py"
       - "tools/repack-boot-v2.py"
       - "shim/**"
@@ -177,16 +179,34 @@ jobs:
           sed -E 's#^.*/xnu/##' our-warnings.txt | head -150
       - name: Check every patch and the Wi-Fi driver are in
         run: |
-          ours=$( (cd xnu/patches && ls *.patch); echo 0999-generated-sweet-wlfw-ath11k.patch )
-          if grep -F 'Skipping patch' build.log | grep -F "$ours"; then echo "a patch of ours was not applied"; exit 1; fi
-          for k in dxb/fakeroot/System/Library/Kernels/kernel.*; do [ -f "$k" ] && break; done
+          set -euo pipefail
+          # Check each repository patch independently; a newline-delimited grep pattern
+          # would silently fail to detect individual skipped patches.
+          for patch in xnu/patches/*.patch; do
+            name="$(basename "$patch")"
+            if grep -F 'Skipping patch' build.log | grep -F "$name"; then
+              echo "a patch of ours was not applied: $name" >&2
+              exit 1
+            fi
+          done
+          if grep -F 'Skipping patch' build.log | grep -F '0999-generated-sweet-wlfw-ath11k.patch'; then
+            echo "generated WLFW patch was not applied" >&2
+            exit 1
+          fi
+          k=""
+          for candidate in dxb/fakeroot/System/Library/Kernels/kernel.*; do
+            if [ -f "$candidate" ]; then k="$candidate"; break; fi
+          done
+          test -n "$k" && test -s "$k"
           ls -l "$k"
           if [ "$MACHINE_CONFIG" = INSTANTNOODLE ]; then
             strings -a "$k" | grep -F 'oneplus,instantnoodle'
-            # Validate the actual target identity and compiled UFS root driver.
             file "$k" | grep -E 'Mach-O.*arm64'
             strings -a "$k" | grep -F 'SWEET UFS:'
             strings -a "$k" | grep -F 'ufsroot0'
+            marker='INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation'
+            strings -a "$k" | grep -F "$marker"
+            python3 tools/check-instantnoodle-guards.py dxb/xnu/bsd/dev/sweet_ufs.c
           else
             strings -a "$k" | grep -F 'the firmware has said "unified ready"'
             strings -a "$k" | grep -F 'THE DRIVER IS UP'
