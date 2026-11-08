@@ -25,6 +25,7 @@ on:
       - "tools/mk-ath11k.sh"
       - "tools/xnu-series-file.py"
       - "tools/mkadt-in2013.py"
+      - "tools/fetch-d22ap-product.py"
       - "tools/mkpayload.py"
       - "tools/repack-boot-v2.py"
       - "shim/**"
@@ -206,6 +207,20 @@ jobs:
           cp -R dxb/fakeroot/System/Library/Kernels/. out/ 2>/dev/null || true
           ls -la out
           (cd out && shasum -a 256 kernel.* > SHA256SUMS) || true
+      - name: Fetch D22AP product tree from iOS 16.5 IPSW (HTTP range only)
+        if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-d22ap
+          .venv-d22ap/bin/python -m pip install --disable-pip-version-check 'remotezip==0.12.6'
+          brew install ipsw
+          .venv-d22ap/bin/python tools/fetch-d22ap-product.py
+          ipsw img4 im4p extract --output research/ipsw-x/d22ap.adt research/ipsw-x/DeviceTree.d22ap.im4p
+          python3 tools/adt.py dump research/ipsw-x/d22ap.adt > /tmp/d22ap.adt.dump
+          grep -q 'product {' /tmp/d22ap.adt.dump
+          shasum -a 256 research/ipsw-x/d22ap.adt
       - name: Create IN2013 ADT and XNU payload
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |

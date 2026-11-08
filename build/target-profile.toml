@@ -7,9 +7,12 @@ architecture = "arm64"
 
 [os]
 userland_requested_by_user = "16.5"
+userland_build = "20F66"
+userland_kernel_version = "Darwin 22.5.0 / xnu-8796.122.4~1"
 repo_reference_profile = "16.7.16 / 20H392"
 xnu_source = "xnu-8796.141.3"
-compatibility_status = "not yet verified; keep the repo's 8796.141.3 base and do not silently switch userland"
+xnu_source_availability = "public apple-oss-distributions/xnu refs xnu-8796.122.4 and xnu-8796.122.4~1 returned 404 on 2026-11-08; exact source not verified"
+compatibility_status = "run68 proves only the IN2013 bring-up build on 8796.141.3; iOS 16.5 compatibility is not proven; do not silently switch source"
 identity = "iPhone10,3 / D22AP compatibility profile in the existing Apollo project"
 
 [soc]

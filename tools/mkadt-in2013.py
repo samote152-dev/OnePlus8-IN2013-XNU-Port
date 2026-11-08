@@ -83,9 +83,10 @@ BOOT_MANIFEST_HASH = hashlib.sha384(b'instantnoodle boot manifest').digest()
 # The selected iOS userland identity is iPhone X (iPhone10,3 / D22AP) IPSW. MobileGestalt
 # derives product type, device class, home-button-less UI, artwork etc. from
 # the root identity and /product of the real D22AP device tree. That tree is
-# an Apple artifact (kept out of git): extract it from the IPSW with
-#   tools/remotezip.py URL DeviceTree.d22ap.im4p DIR
-#   ipsw img4 im4p extract DIR/Firmware/all_flash/DeviceTree.d22ap.im4p -o d22ap.adt
+# an Apple artifact (kept out of git): the optional CI step fetches only
+# DeviceTree.d22ap.im4p with HTTP Range from the iOS 16.5 (20F66) IPSW, then:
+#   ipsw img4 im4p extract --output research/ipsw-x/d22ap.adt research/ipsw-x/DeviceTree.d22ap.im4p
+# Only its /product identity properties are copied; its hardware nodes never replace IN2013.
 # the paths the kernel writes (xnu 0120/0121 bsd/dev/sweet_files.c sweet_files_prefixes)
 FILE_PREFIXES = ('/usr/local/', '/Library/Wallpaper/', '/private/var/', '/System/Library/xpc/',
                  # the sound (tools/root-files/audio-on.txt): iOS's VirtualAudio.plugin and our HakiosAudio.driver
