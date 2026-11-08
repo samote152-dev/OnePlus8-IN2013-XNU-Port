@@ -243,6 +243,30 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('virtual-timer-intid', u32(QEMU_VTIMER_INTID if qemu else VTIMER_INTID)),
         ('reg', u64(gicd - SOC_BASE, GICD_SIZE, gicr - SOC_BASE, GICR_SIZE)),
     ])
+    # QEMU virt has no IN2013 display hardware. Keep its ADT free of the
+    # synthetic panel/framebuffer nodes so AppleCLCD cannot touch arbitrary RAM.
+    arm_io_children = [
+        gic,
+        # No hardware: watchdogd checks IODeviceTree:/arm-io/wdt for no-pmu and
+        # otherwise crashes trying to set the PMU boot stage (customer builds
+        # ignore the -wdt_no_pmu boot-arg).
+        node('wdt', [ph(), ('no-pmu', u32(1))]),
+    ]
+    if not qemu:
+        arm_io_children.append(node('disp0', [
+            ph(),
+            ('device_type', cstr('display-subsystem')),
+            ('compatible', cstr('sweet,display')),
+            ('canvas-width', u32(1080 if native_display else 1125)),
+            ('canvas-height', u32(2400 if native_display else display_height or 2436)),
+        ]))
+    if wifi:
+        # launchd discovers WLAN only when the node is present; QEMU has no radio.
+        arm_io_children.append(node('wlan', [
+            ph(),
+            ('device_type', cstr('wlan')),
+            ('compatible', cstr('apollo,qca6390')),
+        ]))
     arm_io = node('arm-io', [
         ph(),
         ('device_type', cstr('sweet-io')),
@@ -250,32 +274,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('#address-cells', u32(2)),
         ('#size-cells', u32(2)),
         ('ranges', u64(0, SOC_BASE, 0x100000000 - SOC_BASE)),
-    ], [gic,
-        # No hardware: watchdogd checks IODeviceTree:/arm-io/wdt for no-pmu and
-        # otherwise crashes trying to set the PMU boot stage (customer builds
-        # ignore the -wdt_no_pmu boot-arg).
-        node('wdt', [ph(), ('no-pmu', u32(1))]),
-        # Main display: IOMobileFramebuffer.framework counts /arm-io children
-        # with this device_type and reads the canvas size from the node
-        # (the presented iPhone X size, see SweetFramebuffer.cpp; --native-display: the panel's own, for
-        # sweetfb_native=1);
-        # the kernel's AppleCLCD matches the compatible string.
-        node('disp0', [
-            ph(),
-            ('device_type', cstr('display-subsystem')),
-            ('compatible', cstr('sweet,display')),
-            ('canvas-width', u32(1080 if native_display else 1125)),
-            ('canvas-height', u32(2400 if native_display else display_height or 2436)),
-        ])] + (
-        # launchd starts wifid only when the device tree has a node named "wlan" or "marconi-wifi"
-        # (com.apple.wifid _LimitLoadToDeviceTree; launchd asks io_device_tree_entry_exists_with_name):
-        # without it Settings shows Wi-Fi greyed out (boot 53). As iOSPlus10 and ios-spes found.
-        # Only with --wifi-fw: the radio's driver (sweetwifi=12) is what wifid then talks to.
-        [node('wlan', [
-            ph(),
-            ('device_type', cstr('wlan')),
-            ('compatible', cstr('apollo,qca6390')),
-        ])] if wifi else []))
+    ], arm_io_children)
 
     fbcon = node('sweet-fbcon', [
         ph(),
@@ -334,7 +333,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('manufacturer', cstr('Apple Inc.')),
         ('#address-cells', u32(2)),
         ('#size-cells', u32(2)),
-    ], [chosen, defaults, cpus, arm_io, fbcon, buttons, pram] + product + ([] if qemu else [ufs]) +
+    ], [chosen, defaults, cpus, arm_io] + ([] if qemu else [fbcon]) + [buttons, pram] + product + ([] if qemu else [ufs]) +
        ([node('sweet-touch', [ph(), ('firmware', touch_fw)])] if touch_fw else []) +
        ([node('sweet-gpu', [ph(), ('gmu-firmware', gmu_fw)] + list(gpu_extra))] if gmu_fw else []) +
        ([node('sweet-wifi', [ph()] + list(wifi))] if wifi else []) +
