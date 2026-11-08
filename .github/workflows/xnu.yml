@@ -76,7 +76,23 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/validate-repo.py
+      - name: Validate repository (verbose)
+        id: validate
+        continue-on-error: true
+        run: |
+          set +e
+          python3 tools/validate-repo.py --verbose 2>&1 | tee validation.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+      - name: Upload validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-log
+          path: validation.log
+      - name: Enforce validation result
+        if: steps.validate.outputs.exit_code != '0'
+        run: exit 1
 
   build:
     needs: validate
