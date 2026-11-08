@@ -98,21 +98,43 @@ FILE_PREFIXES = ('/usr/local/', '/Library/Wallpaper/', '/private/var/', '/System
 D22AP_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../research/ipsw-x/d22ap.adt')
 
 
-def d22ap_product(path=D22AP_ADT, child=None):
-    """/product properties of the real D22AP tree (or of its child node CHILD: None if it
-    has none), without the syscfg placeholders iBoot would fill in (flag bit set) and the
-    node bookkeeping."""
+# Only stable identity/UI metadata is imported from D22AP. Hardware and capability
+# properties (wifi-chipset, graphics-featureset-class, baseband-chipset, camera/button
+# geometry, microphone count, RF/security flags, etc.) describe iPhone X hardware and
+# must not be advertised by the Qualcomm IN2013 board. The artwork subtype is omitted
+# unless explicitly supplied after mapping the OnePlus display.
+D22AP_PRODUCT_IDENTITY_PROPERTIES = frozenset({
+    'product-name',
+    'product-description',
+    'product-id',
+    'artwork-device-idiom',
+    'artwork-scale-factor',
+    'artwork-display-gamut',
+    'display-gamut',
+})
+
+
+def d22ap_product(path=D22AP_ADT):
+    """Read a small identity/UI whitelist from the real D22AP /product node.
+
+    Never import the full iPhone X capability set or its /product/haptics child:
+    IN2013 has Qualcomm WLAN/Adreno and no validated native haptics backend.
+    """
     if not os.path.exists(path):
         print(f'warning: {path} missing, no /product node', file=sys.stderr)
         return None
     root, _ = adt.parse(open(path, 'rb').read())
     for c in root.children:
-        if dict((k, v) for k, f, v in c.props).get('name') == b'product\0':
-            if child is not None:
-                c = next((g for g in c.children if dict((k, v) for k, f, v in g.props).get('name') == cstr(child)), None)
-                if c is None:
-                    return None
-            return [(k, v) for k, f, v in c.props if not f and k not in ('name', 'AAPL,phandle')]
+        if dict((k, v) for k, f, v in c.props).get('name') == b'product\\0':
+            props = [(k, v) for k, f, v in c.props
+                     if not f and k in D22AP_PRODUCT_IDENTITY_PROPERTIES]
+            required = {'product-name', 'product-description', 'product-id'}
+            missing = required - {k for k, _ in props}
+            if missing:
+                raise SystemExit(f'{path}: /product missing required identity properties: {sorted(missing)}')
+            print('D22AP /product: importing identity/UI properties only: ' +
+                  ', '.join(k for k, _ in props), file=sys.stderr)
+            return props
     raise SystemExit(f'{path}: no /product node')
 
 u32 = lambda *v: struct.pack('<%dI' % len(v), *v)
@@ -289,29 +311,16 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
 
     product_props = d22ap_product()
     if product_props and not p3:
-        # The panel gets 8-bit 'BGRA' (the kernel copies every frame as such). With the iPhone X's
-        # "P3", iOS picks deep-colour surfaces: with a GPU renderer CoreAnimation draws the screen
-        # in 'b3a8' (apollo boots 35/36: the CoreAnimation bridge, backboardd crash loop), and
-        # MaterialKit's 'b3a8' / CoreAnimation's 'w30r' snapshots are ones its software renderer
-        # cannot draw into (white dock backgrounds; as ios-sailfish found). MobileGestalt reads
-        # these two at the first boot of a root.
+        # IN2013's first framebuffer is 8-bit BGRA/sRGB. Do not copy D22AP's
+        # wide-gamut setting from the iPhone X profile.
         product_props = [(k, cstr('sRGB') if k in ('artwork-display-gamut', 'display-gamut') else v)
                          for k, v in product_props]
     if product_props and artwork_subtype is not None:
-        # --artwork-subtype N: MobileGestalt's ArtworkDeviceSubType comes from /product's artwork-device-subtype.
-        # 2556 (iPhone 14 Pro) is what makes iOS 16 draw the Dynamic Island (the "Nugget"/Cowabunga trick, done
-        # here at the source instead of in MobileGestalt's cache). Takes effect once the cache is rebuilt:
-        # add --files-from tools/root-files/mgcache-reset.txt for that one boot.
-        product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \
+        # Add an artwork subtype only when an explicit IN2013/UI mapping is supplied.
+        product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \\
                         [('artwork-device-subtype', u32(artwork_subtype))]
-    # /product/haptics, as the iPhone X has it (xnu 0146; hakios-apollo's mkidentity.py copies it too): MobileGestalt's
-    # DeviceSupportsClosedLoopHaptics. With it iOS plays its vibrations and feedbacks as waveforms on the audio
-    # server's "Actuator" device (userland/audio), which sweet_haptic.c plays on the motor (apollo_haptic=5).
-    haptics = d22ap_product(child='haptics') if product_props else None
-    if product_props and haptics is None:
-        print('warning: the D22AP tree has no /product/haptics: iOS will not play haptics', file=sys.stderr)
-    product = [node('product', [ph()] + product_props, [node('haptics', [ph()] + haptics)] if haptics else [])] \
-        if product_props else []
+    # Do not copy D22AP /product/haptics: 0173 keeps Apollo haptics disabled on IN2013.
+    product = [node('product', [ph()] + product_props)] if product_props else []
 
     # Panic log region. /pram reg = <phys size>; it sits just above the
     # dram-size we expose, so XNU maps it but never allocates into it.
