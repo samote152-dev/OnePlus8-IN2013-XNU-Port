@@ -125,7 +125,7 @@ def d22ap_product(path=D22AP_ADT):
         return None
     root, _ = adt.parse(open(path, 'rb').read())
     for c in root.children:
-        if dict((k, v) for k, f, v in c.props).get('name') == b'product\\0':
+        if dict((k, v) for k, f, v in c.props).get('name') == b'product\0':
             props = [(k, v) for k, f, v in c.props
                      if not f and k in D22AP_PRODUCT_IDENTITY_PROPERTIES]
             required = {'product-name', 'product-description', 'product-id'}
@@ -317,7 +317,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
                          for k, v in product_props]
     if product_props and artwork_subtype is not None:
         # Add an artwork subtype only when an explicit IN2013/UI mapping is supplied.
-        product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \\
+        product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \
                         [('artwork-device-subtype', u32(artwork_subtype))]
     # Do not copy D22AP /product/haptics: 0173 keeps Apollo haptics disabled on IN2013.
     product = [node('product', [ph()] + product_props)] if product_props else []
