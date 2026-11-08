@@ -5,23 +5,50 @@
 diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 --- a/bsd/dev/sweet_ufs.c
 +++ b/bsd/dev/sweet_ufs.c
-@@ -666,4 +666,6 @@
- 	/* CPU clock first: firmware leaves the cores slow (apollo, sweet_cpufreq.c). */
+@@ -658,23 +658,27 @@ sweet_ufs_init(void)
+ 	devfs_make_node(su.bdev, DEVFS_BLOCK, UID_ROOT, GID_OPERATOR, 0640, "ufsroot0");
+ 	devfs_make_node(makedev(su.cmajor, 0), DEVFS_CHAR, UID_ROOT, GID_OPERATOR, 0640, "rufsroot0");
+ 	/* Only now, with the partition bounds known, can writes be allowed. */
+ 	su.writable = (rw != 0);
+ 	su.ready = true;
+ 	printf("SWEET UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\\n",
+ 	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
+ 	    su.writable ? "read-write" : "read-only", su.dma_pa);
++	/* IN2013 keeps firmware clock/GMU policy until its board drivers are validated. */
 +#if !defined(INSTANTNOODLE)
+ 	/* CPU clock first: firmware leaves the cores slow (apollo, sweet_cpufreq.c). */
  	sweet_cpufreq_init();
  	/* Adreno 650 probe; does nothing without boot-arg sweetgpu=N (sweet_gpu.c). */
  	sweet_gpu_init();
 +#endif
-@@ -670,4 +672,5 @@
  	sweet_log_start();
  	sweet_sample_start();
  	/* Input drivers (HID services in iokit/Kernel/arm/hid/SweetHID.cpp). */
 +#if !defined(INSTANTNOODLE)
  	sweet_keys_init();
-@@ -689,3 +692,6 @@
+ 	sweet_touch_init();
+ 	sweet_usb_probe();
+ 	/* the memory bus to its top (xnu 0148, sweet_rpmh.c; boot-arg sweetddr=0: left as the boot chain set it) */
+ 	sweet_rpmh_ddr_top();
+ 	/* QCA6390 Wi-Fi bring-up; does nothing without boot-arg sweetwifi=N (sweet_wifi.c). */
+ 	sweet_wifi_init();
+ 	/* QCA6390 Bluetooth bring-up; does nothing without boot-arg sweetbt=N (sweet_bt.c, xnu 0136). */
+ 	sweet_bt_init();
+ 	/* the sound (xnu 0139, the Mi 10T port's drivers): /dev/apollo-audio for iOS's audio plug-in, and the audio
+ 	 * DSP, which does nothing without boot-arg apollo_audio=N or apollo_adsp_step=N (sweet_adsp.c) */
+ 	apollo_audio_init();
+ 	apollo_adsp_init();
+ 	/* the vibration motor (xnu 0146, sweet_haptic.c): nothing without boot-arg apollo_haptic=N; the microphone (sweet_mic.c)
+ 	 * starts with the DSP's audio services, with apollo_mic=N */
+ 	apollo_haptic_init();
  	/* the backlight (xnu 0151, sweet_backlight.c): faded out and in with the display (boot-arg apollo_backlight=0: left alone) */
  	apollo_backlight_init();
 +#else
-+	printf("INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation\n");
++	printf("INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation\\n");
 +#endif
  	return 0;
+ }
+ 
+ /*
+ * Persistent console log ("sweetlog"). Filming the phone screen is the only
+ * other way to see the console, so every character that reaches the
