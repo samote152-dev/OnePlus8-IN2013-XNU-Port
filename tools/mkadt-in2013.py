@@ -3,7 +3,7 @@
 
 Only what the early boot path actually reads (see NOTES.md); every MMIO
 address comes from the sweet live FDT. Usage:
-  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--native-display | --display-height N] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
+  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--native-display | --display-height N] [--fb-verified] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
             [--sqe-fw a650_sqe.fw] [--zap-mdt a650_zap.mdt] [--zap-seg a650_zap.b02] [--wifi-fw DIR|amss.bin] [--wifi-board FILE] [--wifi-mac aa:bb:cc:dd:ee:ff]
             [--bt-fw DIR]
 /product display-gamut metadata is omitted until the IN2013 panel color mode and bootloader framebuffer encoding are verified.
@@ -149,8 +149,8 @@ def node(name, props=(), children=()):
 
 def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=(), files=(),
           deletes=(), lists=(), wifi=(), macs=(), bt=(), moves=(), native_display=False, display_height=None,
-          artwork_subtype=None):
-    """qemu=True: same tree, but with QEMU virt's GIC addresses and CNTFRQ (tools/qemu-sweet.py)."""
+          fb_verified=False, artwork_subtype=None):
+    """Build IN2013 ADT; qemu=True selects QEMU virt. Framebuffer is opt-in only after ABL handoff verification."""
     phys_base, mem_size = (HIGH_PHYS_BASE, HIGH_MEM_SIZE) if highmem else (PHYS_BASE, MEM_SIZE)
     # Carve the panic log off the top so the kernel never allocates over it.
     panic_base = phys_base + mem_size - PANIC_LOG_SIZE
@@ -333,7 +333,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('manufacturer', cstr('Apple Inc.')),
         ('#address-cells', u32(2)),
         ('#size-cells', u32(2)),
-    ], [chosen, defaults, cpus, arm_io] + ([] if qemu else [fbcon]) + [buttons, pram] + product + ([] if qemu else [ufs]) +
+    ], [chosen, defaults, cpus, arm_io] + ([fbcon] if (not qemu and fb_verified) else []) + [buttons, pram] + product + ([] if qemu else [ufs]) +
        ([node('sweet-touch', [ph(), ('firmware', touch_fw)])] if touch_fw else []) +
        ([node('sweet-gpu', [ph(), ('gmu-firmware', gmu_fw)] + list(gpu_extra))] if gmu_fw else []) +
        ([node('sweet-wifi', [ph()] + list(wifi))] if wifi else []) +
@@ -505,7 +505,8 @@ if __name__ == '__main__':
                  'the boot image would grow too much')
     if files:
         print(f'files for the root: {len(files)}, {sum(len(d) for _, d, _ in files) / 1048576:.1f} MiB', file=sys.stderr)
-    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
+    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv,
+                 fb_verified='--fb-verified' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
                  gpu_extra=gpu_extra, native_display='--native-display' in sys.argv,
                  display_height=int(sys.argv[sys.argv.index('--display-height') + 1]) if '--display-height' in sys.argv else None,
                  artwork_subtype=int(sys.argv[sys.argv.index('--artwork-subtype') + 1]) if '--artwork-subtype' in sys.argv else None,
