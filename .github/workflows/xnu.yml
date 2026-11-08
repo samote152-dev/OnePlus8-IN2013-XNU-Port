@@ -220,7 +220,7 @@ jobs:
         run: |
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           cd shim
-          CC=clang OBJCOPY=llvm-objcopy READELF=llvm-readelf NM=llvm-nm TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld ./build.sh
+          CC=clang OBJCOPY=llvm-objcopy READELF=llvm-readelf NM=llvm-nm TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld bash ./build.sh
           cp out/Image ../out/in2013/shim-Image
       - uses: actions/upload-artifact@v4
         if: always()
