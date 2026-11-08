@@ -11,7 +11,7 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
  	/* Only now, with the partition bounds known, can writes be allowed. */
  	su.writable = (rw != 0);
  	su.ready = true;
- 	printf("SWEET UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\\n",
+ 	printf("SWEET UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\n",
  	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
  	    su.writable ? "read-write" : "read-only", su.dma_pa);
 +	/* IN2013 keeps firmware clock/GMU policy until its board drivers are validated. */
@@ -33,8 +33,7 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
  	/* QCA6390 Wi-Fi bring-up; does nothing without boot-arg sweetwifi=N (sweet_wifi.c). */
  	sweet_wifi_init();
  	/* QCA6390 Bluetooth bring-up; does nothing without boot-arg sweetbt=N (sweet_bt.c, xnu 0136). */
- 	sweet_bt_init();
- 	/* the sound (xnu 0139, the Mi 10T port's drivers): /dev/apollo-audio for iOS's audio plug-in, and the audio
+@@ -683,16 +687,19 @@ sweet_ufs_init(void)
  	 * DSP, which does nothing without boot-arg apollo_audio=N or apollo_adsp_step=N (sweet_adsp.c) */
  	apollo_audio_init();
  	apollo_adsp_init();
@@ -44,11 +43,13 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
  	/* the backlight (xnu 0151, sweet_backlight.c): faded out and in with the display (boot-arg apollo_backlight=0: left alone) */
  	apollo_backlight_init();
 +#else
-+	printf("INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation\\n");
++	printf("INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation\n");
 +#endif
  	return 0;
  }
  
  /*
- * Persistent console log ("sweetlog"). Filming the phone screen is the only
- * other way to see the console, so every character that reaches the
+  * Persistent console log ("sweetlog"). Filming the phone screen is the only
+  * other way to see the console, so every character that reaches the
+  * console (kernel printf and /dev/console writes of daemons, both through
+  * _cnputs) is also kept in a 4 MiB ring, and once the partition is known
