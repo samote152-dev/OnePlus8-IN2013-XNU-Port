@@ -3,10 +3,10 @@
 
 Only what the early boot path actually reads (see NOTES.md); every MMIO
 address comes from the sweet live FDT. Usage:
-  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--p3] [--native-display | --display-height N] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
+  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--native-display | --display-height N] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
             [--sqe-fw a650_sqe.fw] [--zap-mdt a650_zap.mdt] [--zap-seg a650_zap.b02] [--wifi-fw DIR|amss.bin] [--wifi-board FILE] [--wifi-mac aa:bb:cc:dd:ee:ff]
             [--bt-fw DIR]
-/product says the display is sRGB, not the iPhone X's P3 (--p3 keeps P3): see build().
+/product display-gamut metadata is omitted until the IN2013 panel color mode and bootloader framebuffer encoding are verified.
 --native-display: /arm-io/disp0's canvas is the panel's own 1080x2400 instead of the iPhone X's
 1125x2436, for boot-arg sweetfb_native=1 (iOS lays out for 360x800 points @3x; the picture 1:1 on
 the panel). --display-height N: the canvas is 1125xN, for boot-arg sweetfb_height=N (xnu 0152; 2502 = 375x834
@@ -109,8 +109,6 @@ D22AP_PRODUCT_IDENTITY_PROPERTIES = frozenset({
     'product-id',
     'artwork-device-idiom',
     'artwork-scale-factor',
-    'artwork-display-gamut',
-    'display-gamut',
 })
 
 
@@ -149,7 +147,7 @@ def node(name, props=(), children=()):
     return n
 
 
-def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=(), p3=False, files=(),
+def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=(), files=(),
           deletes=(), lists=(), wifi=(), macs=(), bt=(), moves=(), native_display=False, display_height=None,
           artwork_subtype=None):
     """qemu=True: same tree, but with QEMU virt's GIC addresses and CNTFRQ (tools/qemu-sweet.py)."""
@@ -310,11 +308,8 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
     ])
 
     product_props = d22ap_product()
-    if product_props and not p3:
-        # IN2013's first framebuffer is 8-bit BGRA/sRGB. Do not copy D22AP's
-        # wide-gamut setting from the iPhone X profile.
-        product_props = [(k, cstr('sRGB') if k in ('artwork-display-gamut', 'display-gamut') else v)
-                         for k, v in product_props]
+    # Display gamut is intentionally omitted: the IN2013 panel's active color mode
+    # and ABL framebuffer encoding have not been confirmed from the live handoff.
     if product_props and artwork_subtype is not None:
         # Add an artwork subtype only when an explicit IN2013/UI mapping is supplied.
         product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \
@@ -512,7 +507,7 @@ if __name__ == '__main__':
     if files:
         print(f'files for the root: {len(files)}, {sum(len(d) for _, d, _ in files) / 1048576:.1f} MiB', file=sys.stderr)
     root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
-                 gpu_extra=gpu_extra, p3='--p3' in sys.argv, native_display='--native-display' in sys.argv,
+                 gpu_extra=gpu_extra, native_display='--native-display' in sys.argv,
                  display_height=int(sys.argv[sys.argv.index('--display-height') + 1]) if '--display-height' in sys.argv else None,
                  artwork_subtype=int(sys.argv[sys.argv.index('--artwork-subtype') + 1]) if '--artwork-subtype' in sys.argv else None,
                  files=files, deletes=deletes, lists=lists, wifi=wifi, macs=macs, bt=bt,
