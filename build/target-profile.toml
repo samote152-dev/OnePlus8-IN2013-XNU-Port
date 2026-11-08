@@ -42,6 +42,7 @@ framebuffer_reserved_base = "0x9C000000"
 framebuffer_reserved_size = "0x02300000"
 stride_assumption = 4320
 pixel_format_assumption = "32-bit A8R8G8B8; confirm from ABL handoff before display writes"
+status = "shim framebuffer writes and boot_args.Video are disabled by default; enable only after ABL confirms base, stride, pixel format and ownership"
 
 [touch]
 controller = "Samsung S6SY771"
