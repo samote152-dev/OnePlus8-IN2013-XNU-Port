@@ -33,7 +33,7 @@ on:
       - "wifi/**"
       - ".github/workflows/xnu.yml"
   push:
-    branches: [main]
+    branches: [main, integration/unixnu-kebab-reference]
     paths:
       - "xnu/patches/**"
       - "tools/validate-repo.py"
