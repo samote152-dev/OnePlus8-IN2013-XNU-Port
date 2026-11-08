@@ -1,4 +1,5 @@
 # INSTANTNOODLE machine-config registration isolated from the peripheral-profile patch.
+# The INSTANTNOODLE MASTER config is maintained by its own earlier XNU-series patch.
 
 diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
 index 3b39438..e29a748 100644
