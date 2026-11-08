@@ -1,18 +1,27 @@
-# The inherited SWEET input helpers target different hardware: the PM6150L
-# key observer and Apollo/NT36675 SPI touch controller are not IN2013 devices.
-# OnePlus 8 uses Samsung S6SY771 over QUPv3 SE13/I2C at 0x48 (IRQ GPIO39,
-# reset GPIO38). Keep both helpers uncalled until native IN2013 drivers exist.
+# IN2013 has a different PMIC and input/display stack from SWEET/MI10T Apollo.
+# Keep inherited board-specific MMIO and power helpers uncalled until their
+# addresses, PMIC rails, firmware and GPIO assumptions are verified on IN2013.
+# The UFS root, console log and software sampler remain available for bring-up.
 diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 --- a/bsd/dev/sweet_ufs.c
 +++ b/bsd/dev/sweet_ufs.c
-@@ -601,6 +601,10 @@
+@@ -666,4 +666,6 @@
+ 	/* CPU clock first: firmware leaves the cores slow (apollo, sweet_cpufreq.c). */
++#if !defined(INSTANTNOODLE)
+ 	sweet_cpufreq_init();
+ 	/* Adreno 650 probe; does nothing without boot-arg sweetgpu=N (sweet_gpu.c). */
+ 	sweet_gpu_init();
++#endif
+@@ -670,4 +672,5 @@
  	sweet_log_start();
  	sweet_sample_start();
  	/* Input drivers (HID services in iokit/Kernel/arm/hid/SweetHID.cpp). */
 +#if !defined(INSTANTNOODLE)
  	sweet_keys_init();
- 	sweet_touch_init();
+@@ -689,3 +692,6 @@
+ 	/* the backlight (xnu 0151, sweet_backlight.c): faded out and in with the display (boot-arg apollo_backlight=0: left alone) */
+ 	apollo_backlight_init();
 +#else
-+	printf("INSTANTNOODLE: SWEET PMIC keys and Apollo NT36675 SPI touch disabled; native S6SY771 I2C driver pending\n");
++	printf("INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation\n");
 +#endif
  	return 0;
