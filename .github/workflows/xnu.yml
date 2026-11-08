@@ -103,7 +103,7 @@ jobs:
           head -3 dxb/patches/0999-generated-sweet-wlfw-ath11k.patch
       - name: Deps
         run: |
-          brew install jq gum bash cmake ninja llvm
+          brew install jq gum bash cmake ninja llvm lld
           printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
           sudo chmod +x /usr/local/bin/xcodes
           sw_vers
@@ -219,7 +219,8 @@ jobs:
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |
           LLVM_BIN="$(brew --prefix llvm)/bin"
-          export PATH="$LLVM_BIN:$PATH"
+          LLD_BIN="$(brew --prefix lld)/bin"
+          export PATH="$LLVM_BIN:$LLD_BIN:$PATH"
           for tool in clang llvm-objcopy llvm-readelf llvm-nm ld.lld; do
             command -v "$tool"
           done
