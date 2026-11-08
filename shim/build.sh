@@ -41,7 +41,7 @@ with open('out/Image', 'ab') as f:
 print(f'Image padded to {size} bytes')
 PY
 # Host render of the console layout.
-gcc -O1 -Wall -o out/host_test console.c host_test.c
+gcc -DSWEET_FB_VERIFIED -O1 -Wall -o out/host_test console.c host_test.c
 ./out/host_test
 if [[ "${BUILD_BOOTIMG:-0}" == 1 ]]; then
     : "${DTB_PATH:=../dtb/boot_unpacked/dtb}"
