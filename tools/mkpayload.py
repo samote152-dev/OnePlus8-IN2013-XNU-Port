@@ -66,7 +66,7 @@ def parse_macho(buf):
                 raise ValueError('segment outside Mach-O or invalid VA range')
             segs.append(dict(name=name, vmaddr=vmaddr, vmsize=vmsize, fileoff=fileoff, filesize=filesize))
         elif cmd == LC_UNIXTHREAD:
-            if size < 280 or entry is not None:
+            if size < 288 or entry is not None:
                 raise ValueError('truncated or duplicate LC_UNIXTHREAD')
             flavor, count = struct.unpack_from('<II', buf, off + 8)
             if flavor != 6 or count < 68:
@@ -123,6 +123,8 @@ def apply_chained_fixups(buf, m):
         if page_size < 4096 or page_size > 65536 or page_size & (page_size - 1):
             raise ValueError('invalid chained-fixup page size')
         seg = m['segs'][i]
+        if page_count > (seg['vmsize'] + page_size - 1) // page_size:
+            raise ValueError('fixup page count exceeds segment virtual size')
         if seg_offset != seg['vmaddr'] - image_base:
             raise ValueError('fixup segment offset does not match Mach-O segment')
         starts = struct.unpack_from('<%dH' % page_count, buf, base + 22)
