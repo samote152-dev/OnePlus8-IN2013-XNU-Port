@@ -39,15 +39,26 @@ SEG_TABLE = CMDLINE + BOOT_LINE_LENGTH	# 0x2a8
 
 
 def parse_macho(buf):
+    if len(buf) < 32:
+        raise ValueError('truncated Mach-O header')
     magic, cputype, cpusub, ftype, ncmds, sizeofcmds, flags, _ = struct.unpack_from('<8I', buf, 0)
     assert magic == 0xfeedfacf, 'not a 64-bit Mach-O'
+    if cputype != 0x0100000c or sizeofcmds > len(buf) - 32 or ncmds > sizeofcmds // 8:
+        raise ValueError('invalid ARM64 Mach-O command region')
+    cmd_end = 32 + sizeofcmds
     segs, entry, fixups = [], None, None
     off = 32
     for _ in range(ncmds):
+        if off + 8 > cmd_end:
+            raise ValueError('truncated load command')
         cmd, size = struct.unpack_from('<II', buf, off)
+        if size < 8 or size > cmd_end - off:
+            raise ValueError('invalid load command size')
         if cmd == LC_SEGMENT_64:
             name = buf[off + 8:off + 24].split(b'\0')[0].decode()
             vmaddr, vmsize, fileoff, filesize = struct.unpack_from('<4Q', buf, off + 24)
+            if filesize > vmsize or fileoff > len(buf) or filesize > len(buf) - fileoff or vmaddr + vmsize > (1 << 64):
+                raise ValueError('segment outside Mach-O or invalid VA range')
             segs.append(dict(name=name, vmaddr=vmaddr, vmsize=vmsize, fileoff=fileoff, filesize=filesize))
         elif cmd == LC_UNIXTHREAD:
             flavor, count = struct.unpack_from('<II', buf, off + 8)
@@ -55,7 +66,13 @@ def parse_macho(buf):
             entry, = struct.unpack_from('<Q', buf, off + 16 + 32 * 8)
         elif cmd == LC_DYLD_CHAINED_FIXUPS:
             fixups = struct.unpack_from('<II', buf, off + 8)	# dataoff, datasize
+            if fixups[0] > len(buf) or fixups[1] > len(buf) - fixups[0]:
+                raise ValueError('fixups outside Mach-O')
         off += size
+    if off != cmd_end or not segs or entry is None:
+        raise ValueError('incomplete Mach-O commands or missing entry')
+    if not any(seg['vmaddr'] <= entry < seg['vmaddr'] + seg['vmsize'] for seg in segs):
+        raise ValueError('entry outside mapped segments')
     return dict(cputype=cputype, cpusub=cpusub & 0xff, segs=segs, entry=entry, fixups=fixups)
 
 
@@ -63,18 +80,28 @@ def apply_chained_fixups(buf, m):
     """Rewrite every chained rebase in buf (the whole file) to its plain target VA."""
     if not m['fixups']:
         return 0
-    data_off, _ = m['fixups']
+    data_off, data_size = m['fixups']
+    if data_size < 28:
+        raise ValueError('truncated fixups header')
     _, starts_off, _, _, imports_count, _, _ = struct.unpack_from('<7I', buf, data_off)
     assert imports_count == 0, 'kernel has binds; only rebases are supported'
     image_base = m['segs'][0]['vmaddr']		# __TEXT, holds the mach header
+    if starts_off > data_size - 4:
+        raise ValueError('fixups starts outside data')
     seg_count, = struct.unpack_from('<I', buf, data_off + starts_off)
+    if seg_count > len(m['segs']) or seg_count > (data_size - starts_off - 4) // 4:
+        raise ValueError('invalid fixup segment count')
     nfix = 0
     for i in range(seg_count):
         seg_info, = struct.unpack_from('<I', buf, data_off + starts_off + 4 + 4 * i)
         if not seg_info:
             continue
+        if seg_info > data_size - starts_off or data_size - starts_off - seg_info < 22:
+            raise ValueError('fixup segment info outside data')
         base = data_off + starts_off + seg_info
         size, page_size, fmt, seg_offset, max_valid, page_count = struct.unpack_from('<IHHQIH', buf, base)
+        if 22 + page_count * 2 > size or size > data_size - starts_off - seg_info:
+            raise ValueError('truncated fixup page starts')
         starts = struct.unpack_from('<%dH' % page_count, buf, base + 22)
         seg = m['segs'][i]
         for p, start in enumerate(starts):
@@ -183,6 +210,10 @@ def build(kernel_path, adt_path, cmdline, ramdisk_path=None):
     struct.pack_into('<8sII', out, 0, b'SWEETXNU', 1, len(pieces))
     struct.pack_into('<7Q', out, 0x10, virt_base, m['entry'], adt_off, len(adt_blob), kernel_end,
                      PHYS_BASE, MEM_SIZE)
+    if len(pieces) > 64 or PHYS_BASE & (PAGE - 1) or MEM_SIZE <= 0:
+        raise ValueError('payload exceeds loader limits or invalid DRAM')
+    if kernel_end < virt_base or kernel_end - virt_base > MEM_SIZE:
+        raise ValueError('kernel exceeds declared DRAM')
     cl = cmdline.encode()[:BOOT_LINE_LENGTH - 1]
     out[CMDLINE:CMDLINE + len(cl)] = cl
     for i, t in enumerate(seg_table):
