@@ -197,12 +197,12 @@ const char *loader_boot(uintptr_t dtb)
         p->kernel_end > virt_end || (p->kernel_end & (PAGE_16K - 1)))
         return "invalid kernel entry or end";
 
-    uint64_t adt_pa, adt_va, ba_pa, top;
+    uint64_t adt_pa, ba_unaligned, ba_pa, top;
     if (!va_to_pa(p, p->kernel_end, p->adt_size, &adt_pa) ||
-        !add_ok(p->kernel_end, p->adt_size, &adt_va) ||
-        !add_ok(adt_va, PAGE_16K - 1, &adt_va))
+        !add_ok(adt_pa, p->adt_size, &ba_unaligned) ||
+        !add_ok(ba_unaligned, PAGE_16K - 1, &ba_unaligned))
         return "ADT destination outside kernel memory";
-    ba_pa = (adt_pa + p->adt_size + PAGE_16K - 1) & ~(PAGE_16K - 1);
+    ba_pa = ba_unaligned & ~(PAGE_16K - 1);
     if (ba_pa < adt_pa ||
         !add_ok(ba_pa, PAGE_16K, &top) ||
         top > phys_end ||
