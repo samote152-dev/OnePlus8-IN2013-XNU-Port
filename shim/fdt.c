@@ -35,12 +35,15 @@ static int bounded_string_eq(uintptr_t p, uintptr_t end, const char *s)
 
 static uintptr_t align4(uintptr_t p)
 {
+    if (p > UINTPTR_MAX - 3U)
+        return UINTPTR_MAX;
     return (p + 3U) & ~(uintptr_t)3U;
 }
 
 int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
 {
-    if (!fdt || !prop || !out || be32(fdt) != FDT_MAGIC)
+    if (!fdt || !prop || !out || fdt > UINTPTR_MAX - FDT_HEADER_SIZE ||
+        be32(fdt) != FDT_MAGIC)
         return 0;
 
     uint32_t total = be32(fdt + 4);
@@ -49,7 +52,8 @@ int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
     uint32_t strings_size = be32(fdt + 32);
     uint32_t struct_size = be32(fdt + 36);
 
-    if (total < FDT_HEADER_SIZE ||
+    if (total < FDT_HEADER_SIZE || fdt > UINTPTR_MAX - total ||
+        (struct_off & 3U) ||
         !range_ok(struct_off, struct_size, total) ||
         !range_ok(strings_off, strings_size, total))
         return 0;
