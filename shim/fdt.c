@@ -60,7 +60,7 @@ int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
     uintptr_t strings_end = strings + strings_size;
     uintptr_t p = struct_p;
     unsigned depth = 0;
-    int in_chosen = 0;
+    unsigned chosen_depth = 0;
 
     while (p <= struct_end && struct_end - p >= 4) {
         uint32_t tok = be32(p);
@@ -74,10 +74,10 @@ int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
                 name_end++;
             if (name_end == struct_end)
                 return 0;
-            int is_chosen = depth == 1 &&
-                bounded_string_eq(p, name_end + 1, "chosen");
             depth++;
-            in_chosen = is_chosen;
+            if (depth == 2 &&
+                bounded_string_eq(p, name_end + 1, "chosen"))
+                chosen_depth = depth;
             p = align4(name_end + 1);
             if (p > struct_end)
                 return 0;
@@ -86,8 +86,8 @@ int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
         case FDT_END_NODE:
             if (!depth)
                 return 0;
-            if (depth == 2 && in_chosen)
-                in_chosen = 0;
+            if (depth == chosen_depth)
+                chosen_depth = 0;
             depth--;
             break;
 
@@ -102,7 +102,7 @@ int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
                 return 0;
 
             uintptr_t name = strings + nameoff;
-            if (in_chosen &&
+            if (chosen_depth && depth == chosen_depth &&
                 bounded_string_eq(name, strings_end, prop)) {
                 if (len == 4) {
                     *out = be32(p);
