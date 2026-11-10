@@ -161,31 +161,38 @@ def apply_chained_fixups(buf, m):
 
 
 def decode(raw, fmt, image_base):
-    """Return (unslid target VA, next, stride) for one chained pointer."""
-    if fmt in (2, 6):		# DYLD_CHAINED_PTR_64 / _64_OFFSET
-        assert not raw >> 63, 'bind in kernel'
+    """Return (unslid target VA, next, stride) for supported unauthenticated rebases."""
+    if fmt in (2, 6):  # DYLD_CHAINED_PTR_64 / _64_OFFSET
+        if raw >> 63:
+            raise ValueError('64-bit chained bind pointer is unsupported')
+        if (raw >> 44) & 0x7f:
+            raise ValueError('reserved bits set in 64-bit chained pointer')
         target = raw & ((1 << 36) - 1)
         high8 = (raw >> 36) & 0xff
         nxt = (raw >> 51) & 0xfff
         if fmt == 6:
             target += image_base
         return target | (high8 << 56), nxt, 4
-    if fmt == 8:		# DYLD_CHAINED_PTR_64_KERNEL_CACHE
-        target = raw & ((1 << 30) - 1)
-        nxt = (raw >> 51) & 0xfff
-        return image_base + target, nxt, 4
-    if fmt in (1, 7, 9, 12):	# arm64e variants (stock VMAPPLE kernel only; PAC is not re-signed)
-        auth = raw >> 63
+
+    if fmt == 8:  # DYLD_CHAINED_PTR_64_KERNEL_CACHE
+        # XNU resolves this using basePointers[cacheLevel], then applies PAC
+        # when isAuth is set. The shim has neither cache-level mappings nor
+        # an authenticated-pointer signing path, so never guess image_base.
+        raise ValueError('64_KERNEL_CACHE fixups require kernel-cache base pointers')
+
+    if fmt in (1, 7, 9, 12):  # arm64e rebase variants
+        if (raw >> 62) & 1:
+            raise ValueError('arm64e chained bind pointer is unsupported')
+        if raw >> 63:
+            raise ValueError('authenticated arm64e rebase requires PAC signing')
+        target = raw & ((1 << 43) - 1)
+        high8 = (raw >> 43) & 0xff
         nxt = (raw >> 51) & 0x7ff
         stride = 4 if fmt in (7, 12) else 8
-        if auth:
-            target = raw & 0xffffffff
-        else:
-            target = raw & ((1 << 43) - 1)
-            target |= ((raw >> 43) & 0xff) << 56
-        if fmt in (7, 9, 12) or auth:
+        if fmt in (7, 9, 12):
             target += image_base
-        return target, nxt, stride
+        return target | (high8 << 56), nxt, stride
+
     raise ValueError(f'unsupported chained pointer format {fmt}')
 
 
