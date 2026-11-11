@@ -87,9 +87,13 @@ def main() -> int:
         print(output, end="", flush=True)
 
     serial_log.write_text(output, encoding="utf-8", errors="replace")
-    if "JUMP:" not in output or "XNU: jumping" not in output:
-        print("FAIL: shim did not report the XNU entry handoff; inspect serial.log and qemu.log",
-              file=sys.stderr)
+    # loader.c emits the explicit pre-jump marker, then prints the physical
+    # entry address on the following JUMP line. Match the real console text.
+    required = ("JUMP: ", "XNU: validated payload; jumping")
+    missing = [marker for marker in required if marker not in output]
+    if missing:
+        print("FAIL: shim did not report the XNU entry handoff; missing " +
+              repr(missing) + "; inspect serial.log and qemu.log", file=sys.stderr)
         return 1
     if not timed_out:
         print("NOTE: QEMU exited after the handoff marker; inspect qemu.log for the exit cause.",
