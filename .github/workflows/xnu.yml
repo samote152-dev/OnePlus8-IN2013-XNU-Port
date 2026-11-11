@@ -274,7 +274,7 @@ jobs:
           python3 tools/mkadt-in2013.py out/in2013/instantnoodle.adt --highmem --native-display
           kernel=$(find out -maxdepth 1 -type f -name 'kernel.*' | head -1)
           test -n "$kernel" && test -f "$kernel"
-          python3 tools/mkpayload.py "$kernel" out/in2013/instantnoodle.adt out/in2013/xnu.payload --cmdline "debug=0xc serial=3 cpus=1 keepsyms=1 sweetfb_native=1"
+          python3 tools/mkpayload.py "$kernel" out/in2013/instantnoodle.adt out/in2013/xnu.payload --cmdline "debug=0xc serial=3 cpus=1 keepsyms=1 sweetfb_native=1 -noprogress"
           ls -lh out/in2013
       - name: Build AArch64 boot shim
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
