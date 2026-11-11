@@ -62,7 +62,7 @@ def parse_macho(buf):
                 raise ValueError('truncated LC_SEGMENT_64')
             name = buf[off + 8:off + 24].split(b'\0')[0].decode()
             vmaddr, vmsize, fileoff, filesize = struct.unpack_from('<4Q', buf, off + 24)
-            if filesize > vmsize or fileoff > len(buf) or filesize > len(buf) - fileoff or vmaddr + vmsize > (1 << 64):
+            if (vmsize and filesize > vmsize) or fileoff > len(buf) or filesize > len(buf) - fileoff or vmaddr + vmsize > (1 << 64):
                 raise ValueError('segment outside Mach-O or invalid VA range')
             segs.append(dict(name=name, vmaddr=vmaddr, vmsize=vmsize, fileoff=fileoff, filesize=filesize))
         elif cmd == LC_UNIXTHREAD:
