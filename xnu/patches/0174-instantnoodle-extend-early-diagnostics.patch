@@ -49,25 +49,25 @@ diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
 +	sweet_early_mark(26, "CPU PIO mapped");
  
  #if APPLE_ARM64_ARCH_FAMILY
-@@ -1,3 +1,4 @@
+@@ -600,3 +600,4 @@
  	cpu_timebase_init(TRUE);
 +	sweet_early_mark(27, "CPU timebase initialized");
  
  #if KPERF
-@@ -1,4 +1,6 @@
+@@ -607,4 +607,6 @@
  	PE_init_cpu();
 +	sweet_early_mark(28, "PE_init_cpu done");
  	fiq_context_init(TRUE);
 +	sweet_early_mark(29, "FIQ context initialized");
  
  #if HIBERNATION
-@@ -1,4 +1,5 @@
+@@ -635,4 +635,5 @@
  	gDramBase = *dram_base;
  	gDramSize = *dram_size;
 +	sweet_early_mark(30, "DRAM properties loaded");
  
  	/*
-@@ -1,2 +1,3 @@
+@@ -649,2 +649,3 @@
  	__stack_chk_guard &= ~(0xFFULL << 8);
 +	sweet_early_mark(31, "entering machine_startup");
  	machine_startup(args);
