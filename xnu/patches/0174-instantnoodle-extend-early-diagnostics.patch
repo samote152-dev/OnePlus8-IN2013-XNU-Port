@@ -4,16 +4,16 @@
 diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 --- a/osfmk/arm64/sweet_early.c
 +++ b/osfmk/arm64/sweet_early.c
-@@ -88,6 +88,6 @@
+@@ -89,6 +89,6 @@
  void
  sweet_early_mark(unsigned int stage, const char *label)
  {
--	if (early_disabled || stage > 8) {
+-	if (early_disabled || stage > 20) {
 +	if (early_disabled || stage > 31) {
  		return;
  	}
-@@ -94,6 +94,9 @@
- 	uint32_t color = 0xff00ff00u | (stage * 28u << 16);
+@@ -95,6 +95,9 @@
+ 	uint32_t color = 0xff00ff00u | ((stage & 7u) * 32u << 16);
 +	const unsigned int bar_slots = (EARLY_WIDTH + 47u) / 48u;
 +	const unsigned int bar_x = (stage % bar_slots) * 48u;
 +	const unsigned int bar_end = (bar_x + 48u < EARLY_WIDTH) ? bar_x + 48u : EARLY_WIDTH;
