@@ -12,7 +12,7 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 +	if (early_disabled || stage > 31) {
  		return;
  	}
-@@ -95,4 +95,7 @@
+@@ -95,5 +95,8 @@
  	uint32_t color = 0xff00ff00u | (stage * 28u << 16);
 +	const unsigned int bar_slots = (EARLY_WIDTH + 47u) / 48u;
 +	const unsigned int bar_x = (stage % bar_slots) * 48u;
