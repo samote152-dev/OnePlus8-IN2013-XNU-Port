@@ -21,8 +21,8 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 -		for (unsigned int x = stage * 64; x < (stage + 1) * 64; x++) {
 +		for (unsigned int x = bar_x; x < bar_end; x++) {
  			EARLY_FB[y * EARLY_STRIDE + x] = color;
-		}
-	}
+ 		}
+ 	}
 diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
 --- a/osfmk/arm/arm_init.c
 +++ b/osfmk/arm/arm_init.c
