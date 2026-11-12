@@ -1,7 +1,6 @@
 # Keep the IN2013 early framebuffer diagnostic alive through arm_init().
-# Stage markers 21-31 are deliberately placed at stable statements in the
-# XNU 8796.141.3 arm_init() body. Do not depend on stale line numbers or on
-# a serial_exists block that is not present in this source revision.
+# Stage markers 21-31 are placed at stable statements in XNU 8796.141.3.
+# Avoid stale context from a different arm_init.c revision.
 diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 --- a/osfmk/arm64/sweet_early.c
 +++ b/osfmk/arm64/sweet_early.c
@@ -13,7 +12,7 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 +	if (early_disabled || stage > 31) {
  		return;
  	}
-@@ -1,6 +1,9 @@
+@@ -1,5 +1,8 @@
  	uint32_t color = 0xff00ff00u | (stage * 28u << 16);
 +	const unsigned int bar_slots = (EARLY_WIDTH + 47u) / 48u;
 +	const unsigned int bar_x = (stage % bar_slots) * 48u;
@@ -25,50 +24,50 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
 --- a/osfmk/arm/arm_init.c
 +++ b/osfmk/arm/arm_init.c
-@@ -1,6 +1,7 @@
+@@ -1,5 +1,6 @@
  	if (kern_feature_override(KF_SERIAL_OVRD)) {
  		serialmode = 0;
  	}
 +	sweet_early_mark(21, "serial mode configured");
  
  	/* Start serial if requested and a serial device was enumerated in serial_init(). */
-@@ -1,5 +1,6 @@
+@@ -1,4 +1,6 @@
  	PE_create_console();
 +	sweet_early_mark(22, "console created");
  
  	/* setup console output */
  	PE_init_printf(FALSE);
 +	sweet_early_mark(23, "printf console initialized");
-@@ -1,4 +1,5 @@
+@@ -1,3 +1,5 @@
  	cpu_machine_idle_init(TRUE);
 +	sweet_early_mark(24, "machine idle initialized");
  
  	PE_init_platform(TRUE, &BootCpuData);
 +	sweet_early_mark(25, "late platform init done");
-@@ -1,4 +1,5 @@
+@@ -1,3 +1,4 @@
  	ml_map_cpu_pio();
 +	sweet_early_mark(26, "CPU PIO mapped");
  
  #if APPLE_ARM64_ARCH_FAMILY
-@@ -1,4 +1,5 @@
+@@ -1,3 +1,4 @@
  	cpu_timebase_init(TRUE);
 +	sweet_early_mark(27, "CPU timebase initialized");
  
  #if KPERF
-@@ -1,5 +1,7 @@
+@@ -1,4 +1,6 @@
  	PE_init_cpu();
 +	sweet_early_mark(28, "PE_init_cpu done");
  	fiq_context_init(TRUE);
 +	sweet_early_mark(29, "FIQ context initialized");
  
  #if HIBERNATION
-@@ -1,5 +1,6 @@
+@@ -1,4 +1,5 @@
  	gDramBase = *dram_base;
  	gDramSize = *dram_size;
 +	sweet_early_mark(30, "DRAM properties loaded");
  
  	/*
-@@ -1,5 +1,6 @@
+@@ -1,2 +1,3 @@
  	__stack_chk_guard &= ~(0xFFULL << 8);
 +	sweet_early_mark(31, "entering machine_startup");
  	machine_startup(args);
