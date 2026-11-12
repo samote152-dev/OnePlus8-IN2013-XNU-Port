@@ -4,7 +4,7 @@
 diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 --- a/osfmk/arm64/sweet_early.c
 +++ b/osfmk/arm64/sweet_early.c
-@@ -1,6 +1,6 @@
+@@ -89,6 +89,6 @@
  void
  sweet_early_mark(unsigned int stage, const char *label)
  {
@@ -12,7 +12,7 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 +	if (early_disabled || stage > 31) {
  		return;
  	}
-@@ -1,5 +1,8 @@
+@@ -95,4 +95,7 @@
  	uint32_t color = 0xff00ff00u | (stage * 28u << 16);
 +	const unsigned int bar_slots = (EARLY_WIDTH + 47u) / 48u;
 +	const unsigned int bar_x = (stage % bar_slots) * 48u;
@@ -24,27 +24,27 @@ diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
 --- a/osfmk/arm/arm_init.c
 +++ b/osfmk/arm/arm_init.c
-@@ -1,5 +1,6 @@
+@@ -561,5 +561,6 @@
  	if (kern_feature_override(KF_SERIAL_OVRD)) {
  		serialmode = 0;
  	}
 +	sweet_early_mark(21, "serial mode configured");
  
  	/* Start serial if requested and a serial device was enumerated in serial_init(). */
-@@ -1,4 +1,6 @@
+@@ -571,4 +571,6 @@
  	PE_create_console();
 +	sweet_early_mark(22, "console created");
  
  	/* setup console output */
  	PE_init_printf(FALSE);
 +	sweet_early_mark(23, "printf console initialized");
-@@ -1,3 +1,5 @@
+@@ -582,3 +582,5 @@
  	cpu_machine_idle_init(TRUE);
 +	sweet_early_mark(24, "machine idle initialized");
  
  	PE_init_platform(TRUE, &BootCpuData);
 +	sweet_early_mark(25, "late platform init done");
-@@ -1,3 +1,4 @@
+@@ -592,3 +592,4 @@
  	ml_map_cpu_pio();
 +	sweet_early_mark(26, "CPU PIO mapped");
  
