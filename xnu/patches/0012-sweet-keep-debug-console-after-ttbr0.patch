@@ -204,7 +204,6 @@ diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
  	kernel_startup_initialize_upto(STARTUP_SUB_KPRINTF);
  	kprintf("kprintf initialized\n");
 +	sweet_early_mark(20, "kprintf startup complete");
-
  
  	serialmode = 0;
  	if (PE_parse_boot_argn("serial", &serialmode, sizeof(serialmode))) {
