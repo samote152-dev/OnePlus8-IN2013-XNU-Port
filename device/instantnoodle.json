@@ -20,8 +20,8 @@
     "ram_observed_memtotal_kib": 7708708
   },
   "boot": {
-    "bootloader_unlocked_confirmed": true,
-    "magisk_root_confirmed": true,
+    "bootloader_unlocked_confirmed": false,
+    "magisk_root_confirmed": null,
     "active_android_slot_at_audit": "_b",
     "psci_method": "smc"
   },
@@ -39,7 +39,12 @@
   "timer": {
     "compatible": "arm,armv8-timer",
     "frequency_hz": 19200000,
-    "interrupt_ppi_indices_in_dts_order": [13, 14, 11, 12],
+    "interrupt_ppi_indices_in_dts_order": [
+      13,
+      14,
+      11,
+      12
+    ],
     "virtual_timer_ppi_index": 11,
     "virtual_timer_intid": 27
   },
@@ -47,8 +52,14 @@
     "vendor": "Samsung",
     "panel": "AMB655UV01",
     "dts_panel_symbol": "dsi_oplus19101samsung_amb655uv01_1080_2400_cmd",
-    "resolution": [1080, 2400],
-    "refresh_rates_hz": [60, 90],
+    "resolution": [
+      1080,
+      2400
+    ],
+    "refresh_rates_hz": [
+      60,
+      90
+    ],
     "interface": "MIPI-DSI",
     "mode": "command mode",
     "dsi_lane_map": "lane_map_0123",
@@ -64,21 +75,24 @@
     "i2c_address_hex": "0x48",
     "interrupt_tlmm_gpio": 39,
     "reset_tlmm_gpio": 38,
-    "tx_rx": [16, 36],
+    "tx_rx": [
+      16,
+      36
+    ],
     "max_contacts": 10,
     "linux_compatible": "sec-s6sy771",
     "notes": "Do not use the Mi 10T Novatek NT36675 SPI driver."
   },
   "storage": {
     "type": "UFS 3.0",
-    "controller_base": null,
-    "notes": "Read the active OnePlus device tree before selecting/registering a controller driver."
+    "controller_base": "0x01D84000",
+    "notes": "Controller base is recorded in the IN2013 live-DTB/root audit and generated ADT; UFS register quirks, DMA behavior and partition access remain untested on XNU."
   },
   "open_questions": [
     "Live FDT/ADT and exact DRAM banks",
     "Reserved-memory map and bootloader memory map",
     "Framebuffer address, stride, pixel format and ownership after ExitBootServices",
-    "UFS controller base, quirks and partition map",
+    "UFS controller quirks, DMA behavior and partition map",
     "GPU GMU/SQE/ZAP firmware names, reserved region and TrustZone calls",
     "PMIC/display rail sequence for a native panel driver",
     "Whether the 8T UEFI port can be reused without its board-specific assumptions"

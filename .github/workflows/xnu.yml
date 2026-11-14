@@ -1,4 +1,5 @@
 name: xnu
+# CI validates the ordered XNU patch series before attempting the kernel build.
 
 on:
   workflow_dispatch:
@@ -15,7 +16,7 @@ on:
       keep_going:
         description: make -k (collect all compile errors in one run)
         default: "true"
-  push:
+  pull_request:
     branches: [main]
     paths:
       - "xnu/patches/**"
@@ -24,6 +25,34 @@ on:
       - "tools/mk-ath11k.sh"
       - "tools/xnu-series-file.py"
       - "tools/mkadt-in2013.py"
+      - "build/target-profile.toml"
+      - "tools/qemu-sweet.py"
+      - ".github/workflows/qemu-smoke.yml"
+      - "tools/fetch-d22ap-product.py"
+      - "tools/patch-dxb-kdk-download.py"
+      - "tools/check-instantnoodle-guards.py"
+      - "tools/mkpayload.py"
+      - "tools/repack-boot-v2.py"
+      - "shim/**"
+      - "device/**"
+      - "board/**"
+      - "wifi/**"
+      - ".github/workflows/xnu.yml"
+  push:
+    branches: [main, integration/unixnu-kebab-reference]
+    paths:
+      - "xnu/patches/**"
+      - "tools/validate-repo.py"
+      - "tools/mk-wlfw-header.py"
+      - "tools/mk-ath11k.sh"
+      - "tools/xnu-series-file.py"
+      - "tools/mkadt-in2013.py"
+      - "build/target-profile.toml"
+      - "tools/qemu-sweet.py"
+      - ".github/workflows/qemu-smoke.yml"
+      - "tools/fetch-d22ap-product.py"
+      - "tools/patch-dxb-kdk-download.py"
+      - "tools/check-instantnoodle-guards.py"
       - "tools/mkpayload.py"
       - "tools/repack-boot-v2.py"
       - "shim/**"
@@ -49,11 +78,28 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/validate-repo.py
+      - name: Validate repository (verbose)
+        id: validate
+        continue-on-error: true
+        run: |
+          set +e
+          python3 tools/validate-repo.py --verbose 2>&1 | tee validation.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+      - name: Upload validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-log
+          path: validation.log
+      - name: Enforce validation result
+        if: steps.validate.outputs.exit_code != '0'
+        run: exit 1
 
   build:
+    if: github.event_name != 'pull_request'
     needs: validate
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +111,7 @@ jobs:
           cp xnu/patches/*.patch xnu/patches/*.sh dxb/patches/
           sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
           grep -c 'VALID_ARCHS="x86_64 arm64e arm64"' dxb/build.sh
+          python3 tools/patch-dxb-kdk-download.py dxb/build.sh
           ls dxb/patches
       - name: WLFW message header (ath11k of Linux 7.0.14)
         if: env.MACHINE_CONFIG == 'SWEET' || env.MACHINE_CONFIG == 'INSTANTNOODLE'
@@ -86,7 +133,7 @@ jobs:
           head -3 dxb/patches/0999-generated-sweet-wlfw-ath11k.patch
       - name: Deps
         run: |
-          brew install jq gum bash cmake ninja llvm
+          brew install jq gum bash cmake ninja llvm lld
           printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
           sudo chmod +x /usr/local/bin/xcodes
           sw_vers
@@ -133,13 +180,34 @@ jobs:
           sed -E 's#^.*/xnu/##' our-warnings.txt | head -150
       - name: Check every patch and the Wi-Fi driver are in
         run: |
-          ours=$( (cd xnu/patches && ls *.patch); echo 0999-generated-sweet-wlfw-ath11k.patch )
-          if grep -F 'Skipping patch' build.log | grep -F "$ours"; then echo "a patch of ours was not applied"; exit 1; fi
-          for k in dxb/fakeroot/System/Library/Kernels/kernel.*; do [ -f "$k" ] && break; done
+          set -euo pipefail
+          # Check each repository patch independently; a newline-delimited grep pattern
+          # would silently fail to detect individual skipped patches.
+          for patch in xnu/patches/*.patch; do
+            name="$(basename "$patch")"
+            if grep -F 'Skipping patch' build.log | grep -F "$name"; then
+              echo "a patch of ours was not applied: $name" >&2
+              exit 1
+            fi
+          done
+          if grep -F 'Skipping patch' build.log | grep -F '0999-generated-sweet-wlfw-ath11k.patch'; then
+            echo "generated WLFW patch was not applied" >&2
+            exit 1
+          fi
+          k=""
+          for candidate in dxb/fakeroot/System/Library/Kernels/kernel.*; do
+            if [ -f "$candidate" ]; then k="$candidate"; break; fi
+          done
+          test -n "$k" && test -s "$k"
           ls -l "$k"
           if [ "$MACHINE_CONFIG" = INSTANTNOODLE ]; then
             strings -a "$k" | grep -F 'oneplus,instantnoodle'
-            strings -a "$k" | grep -F 'IN2013: SM8250/UFS path active'
+            file "$k" | grep -E 'Mach-O.*arm64'
+            strings -a "$k" | grep -F 'SWEET UFS:'
+            strings -a "$k" | grep -F 'ufsroot0'
+            marker='INSTANTNOODLE: inherited SWEET/APOLLO CPUFREQ, GPU, input, USB, RPMh, WLAN/BT, audio, haptic and backlight helpers disabled pending board validation'
+            strings -a "$k" | grep -F "$marker"
+            python3 tools/check-instantnoodle-guards.py dxb/xnu/bsd/dev/sweet_ufs.c
           else
             strings -a "$k" | grep -F 'the firmware has said "unified ready"'
             strings -a "$k" | grep -F 'THE DRIVER IS UP'
@@ -186,6 +254,19 @@ jobs:
           cp -R dxb/fakeroot/System/Library/Kernels/. out/ 2>/dev/null || true
           ls -la out
           (cd out && shasum -a 256 kernel.* > SHA256SUMS) || true
+      - name: Fetch D22AP product tree from iOS 16.5 IPSW (HTTP range only)
+        if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-d22ap
+          .venv-d22ap/bin/python -m pip install --disable-pip-version-check 'remotezip==0.12.6'
+          brew install ipsw
+          .venv-d22ap/bin/python tools/fetch-d22ap-product.py
+          ipsw img4 im4p extract --output research/ipsw-x/d22ap.adt research/ipsw-x/DeviceTree.d22ap.im4p
+          python3 tools/adt.py dump research/ipsw-x/d22ap.adt > /tmp/d22ap.adt.dump
+          grep -q 'product {' /tmp/d22ap.adt.dump
+          shasum -a 256 research/ipsw-x/d22ap.adt
       - name: Create IN2013 ADT and XNU payload
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |
@@ -198,9 +279,14 @@ jobs:
       - name: Build AArch64 boot shim
         if: success() && env.MACHINE_CONFIG == 'INSTANTNOODLE'
         run: |
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          LLVM_BIN="$(brew --prefix llvm)/bin"
+          LLD_BIN="$(brew --prefix lld)/bin"
+          export PATH="$LLVM_BIN:$LLD_BIN:$PATH"
+          for tool in clang llvm-objcopy llvm-readelf llvm-nm ld.lld; do
+            command -v "$tool"
+          done
           cd shim
-          CC=clang OBJCOPY=llvm-objcopy READELF=llvm-readelf NM=llvm-nm TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld ./build.sh
+          CC="$LLVM_BIN/clang" OBJCOPY="$LLVM_BIN/llvm-objcopy" READELF="$LLVM_BIN/llvm-readelf" NM="$LLVM_BIN/llvm-nm" TARGET_FLAGS=--target=aarch64-linux-gnu LINK_FLAGS=-fuse-ld=lld bash ./build.sh
           cp out/Image ../out/in2013/shim-Image
       - uses: actions/upload-artifact@v4
         if: always()
