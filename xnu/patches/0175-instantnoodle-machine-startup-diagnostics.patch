@@ -53,10 +53,7 @@
  #include <mach_kdp.h>
  
  #include <mach/boolean.h>
-@@ -422,10 +423,10 @@
- void
- kernel_bootstrap(void)
- {
+@@ -425,13 +426,16 @@
  	kern_return_t   result;
  	thread_t        thread;
  	char            namep[16];
@@ -72,7 +69,8 @@
 +	sweet_early_mark(37, "vm_mem_bootstrap done");
  
  	machine_info.memory_size = (uint32_t)mem_size;
-@@ -476,12 +479,14 @@
+ #if XNU_TARGET_OS_OSX
+@@ -476,12 +480,14 @@
  
  	kernel_bootstrap_log("console_init");
  	console_init();
@@ -87,7 +85,7 @@
  
  #if CONFIG_MACF
  	kernel_bootstrap_log("mac_policy_init");
-@@ -496,6 +501,7 @@
+@@ -496,6 +502,7 @@
  	 */
  	kernel_bootstrap_log("PMAP_ACTIVATE_KERNEL");
  	PMAP_ACTIVATE_KERNEL(master_cpu);
