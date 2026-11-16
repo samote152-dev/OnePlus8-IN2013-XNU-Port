@@ -3,10 +3,10 @@
 
 Only what the early boot path actually reads (see NOTES.md); every MMIO
 address comes from the sweet live FDT. Usage:
-  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--p3] [--native-display | --display-height N] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
+  mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--native-display | --display-height N] [--fb-verified] [--artwork-subtype N] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
             [--sqe-fw a650_sqe.fw] [--zap-mdt a650_zap.mdt] [--zap-seg a650_zap.b02] [--wifi-fw DIR|amss.bin] [--wifi-board FILE] [--wifi-mac aa:bb:cc:dd:ee:ff]
             [--bt-fw DIR]
-/product says the display is sRGB, not the iPhone X's P3 (--p3 keeps P3): see build().
+/product display-gamut metadata is omitted until the IN2013 panel color mode and bootloader framebuffer encoding are verified.
 --native-display: /arm-io/disp0's canvas is the panel's own 1080x2400 instead of the iPhone X's
 1125x2436, for boot-arg sweetfb_native=1 (iOS lays out for 360x800 points @3x; the picture 1:1 on
 the panel). --display-height N: the canvas is 1125xN, for boot-arg sweetfb_height=N (xnu 0152; 2502 = 375x834
@@ -83,9 +83,10 @@ BOOT_MANIFEST_HASH = hashlib.sha384(b'instantnoodle boot manifest').digest()
 # The selected iOS userland identity is iPhone X (iPhone10,3 / D22AP) IPSW. MobileGestalt
 # derives product type, device class, home-button-less UI, artwork etc. from
 # the root identity and /product of the real D22AP device tree. That tree is
-# an Apple artifact (kept out of git): extract it from the IPSW with
-#   tools/remotezip.py URL DeviceTree.d22ap.im4p DIR
-#   ipsw img4 im4p extract DIR/Firmware/all_flash/DeviceTree.d22ap.im4p -o d22ap.adt
+# an Apple artifact (kept out of git): the optional CI step fetches only
+# DeviceTree.d22ap.im4p with HTTP Range from the iOS 16.5 (20F66) IPSW, then:
+#   ipsw img4 im4p extract --output research/ipsw-x/d22ap.adt research/ipsw-x/DeviceTree.d22ap.im4p
+# Only its /product identity properties are copied; its hardware nodes never replace IN2013.
 # the paths the kernel writes (xnu 0120/0121 bsd/dev/sweet_files.c sweet_files_prefixes)
 FILE_PREFIXES = ('/usr/local/', '/Library/Wallpaper/', '/private/var/', '/System/Library/xpc/',
                  # the sound (tools/root-files/audio-on.txt): iOS's VirtualAudio.plugin and our HakiosAudio.driver
@@ -97,21 +98,41 @@ FILE_PREFIXES = ('/usr/local/', '/Library/Wallpaper/', '/private/var/', '/System
 D22AP_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../research/ipsw-x/d22ap.adt')
 
 
-def d22ap_product(path=D22AP_ADT, child=None):
-    """/product properties of the real D22AP tree (or of its child node CHILD: None if it
-    has none), without the syscfg placeholders iBoot would fill in (flag bit set) and the
-    node bookkeeping."""
+# Only stable identity/UI metadata is imported from D22AP. Hardware and capability
+# properties (wifi-chipset, graphics-featureset-class, baseband-chipset, camera/button
+# geometry, microphone count, RF/security flags, etc.) describe iPhone X hardware and
+# must not be advertised by the Qualcomm IN2013 board. The artwork subtype is omitted
+# unless explicitly supplied after mapping the OnePlus display.
+D22AP_PRODUCT_IDENTITY_PROPERTIES = frozenset({
+    'product-name',
+    'product-description',
+    'product-id',
+    'artwork-device-idiom',
+    'artwork-scale-factor',
+})
+
+
+def d22ap_product(path=D22AP_ADT):
+    """Read a small identity/UI whitelist from the real D22AP /product node.
+
+    Never import the full iPhone X capability set or its /product/haptics child:
+    IN2013 has Qualcomm WLAN/Adreno and no validated native haptics backend.
+    """
     if not os.path.exists(path):
         print(f'warning: {path} missing, no /product node', file=sys.stderr)
         return None
     root, _ = adt.parse(open(path, 'rb').read())
     for c in root.children:
         if dict((k, v) for k, f, v in c.props).get('name') == b'product\0':
-            if child is not None:
-                c = next((g for g in c.children if dict((k, v) for k, f, v in g.props).get('name') == cstr(child)), None)
-                if c is None:
-                    return None
-            return [(k, v) for k, f, v in c.props if not f and k not in ('name', 'AAPL,phandle')]
+            props = [(k, v) for k, f, v in c.props
+                     if not f and k in D22AP_PRODUCT_IDENTITY_PROPERTIES]
+            required = {'product-name', 'product-description', 'product-id'}
+            missing = required - {k for k, _ in props}
+            if missing:
+                raise SystemExit(f'{path}: /product missing required identity properties: {sorted(missing)}')
+            print('D22AP /product: importing identity/UI properties only: ' +
+                  ', '.join(k for k, _ in props), file=sys.stderr)
+            return props
     raise SystemExit(f'{path}: no /product node')
 
 u32 = lambda *v: struct.pack('<%dI' % len(v), *v)
@@ -126,10 +147,10 @@ def node(name, props=(), children=()):
     return n
 
 
-def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=(), p3=False, files=(),
+def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=(), files=(),
           deletes=(), lists=(), wifi=(), macs=(), bt=(), moves=(), native_display=False, display_height=None,
-          artwork_subtype=None):
-    """qemu=True: same tree, but with QEMU virt's GIC addresses and CNTFRQ (tools/qemu-sweet.py)."""
+          fb_verified=False, artwork_subtype=None):
+    """Build IN2013 ADT; qemu=True selects QEMU virt. Framebuffer is opt-in only after ABL handoff verification."""
     phys_base, mem_size = (HIGH_PHYS_BASE, HIGH_MEM_SIZE) if highmem else (PHYS_BASE, MEM_SIZE)
     # Carve the panic log off the top so the kernel never allocates over it.
     panic_base = phys_base + mem_size - PANIC_LOG_SIZE
@@ -222,6 +243,30 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('virtual-timer-intid', u32(QEMU_VTIMER_INTID if qemu else VTIMER_INTID)),
         ('reg', u64(gicd - SOC_BASE, GICD_SIZE, gicr - SOC_BASE, GICR_SIZE)),
     ])
+    # QEMU virt has no IN2013 display hardware. Keep its ADT free of the
+    # synthetic panel/framebuffer nodes so AppleCLCD cannot touch arbitrary RAM.
+    arm_io_children = [
+        gic,
+        # No hardware: watchdogd checks IODeviceTree:/arm-io/wdt for no-pmu and
+        # otherwise crashes trying to set the PMU boot stage (customer builds
+        # ignore the -wdt_no_pmu boot-arg).
+        node('wdt', [ph(), ('no-pmu', u32(1))]),
+    ]
+    if not qemu:
+        arm_io_children.append(node('disp0', [
+            ph(),
+            ('device_type', cstr('display-subsystem')),
+            ('compatible', cstr('sweet,display')),
+            ('canvas-width', u32(1080 if native_display else 1125)),
+            ('canvas-height', u32(2400 if native_display else display_height or 2436)),
+        ]))
+    if wifi:
+        # launchd discovers WLAN only when the node is present; QEMU has no radio.
+        arm_io_children.append(node('wlan', [
+            ph(),
+            ('device_type', cstr('wlan')),
+            ('compatible', cstr('apollo,qca6390')),
+        ]))
     arm_io = node('arm-io', [
         ph(),
         ('device_type', cstr('sweet-io')),
@@ -229,32 +274,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('#address-cells', u32(2)),
         ('#size-cells', u32(2)),
         ('ranges', u64(0, SOC_BASE, 0x100000000 - SOC_BASE)),
-    ], [gic,
-        # No hardware: watchdogd checks IODeviceTree:/arm-io/wdt for no-pmu and
-        # otherwise crashes trying to set the PMU boot stage (customer builds
-        # ignore the -wdt_no_pmu boot-arg).
-        node('wdt', [ph(), ('no-pmu', u32(1))]),
-        # Main display: IOMobileFramebuffer.framework counts /arm-io children
-        # with this device_type and reads the canvas size from the node
-        # (the presented iPhone X size, see SweetFramebuffer.cpp; --native-display: the panel's own, for
-        # sweetfb_native=1);
-        # the kernel's AppleCLCD matches the compatible string.
-        node('disp0', [
-            ph(),
-            ('device_type', cstr('display-subsystem')),
-            ('compatible', cstr('sweet,display')),
-            ('canvas-width', u32(1080 if native_display else 1125)),
-            ('canvas-height', u32(2400 if native_display else display_height or 2436)),
-        ])] + (
-        # launchd starts wifid only when the device tree has a node named "wlan" or "marconi-wifi"
-        # (com.apple.wifid _LimitLoadToDeviceTree; launchd asks io_device_tree_entry_exists_with_name):
-        # without it Settings shows Wi-Fi greyed out (boot 53). As iOSPlus10 and ios-spes found.
-        # Only with --wifi-fw: the radio's driver (sweetwifi=12) is what wifid then talks to.
-        [node('wlan', [
-            ph(),
-            ('device_type', cstr('wlan')),
-            ('compatible', cstr('apollo,qca6390')),
-        ])] if wifi else []))
+    ], arm_io_children)
 
     fbcon = node('sweet-fbcon', [
         ph(),
@@ -287,30 +307,14 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
     ])
 
     product_props = d22ap_product()
-    if product_props and not p3:
-        # The panel gets 8-bit 'BGRA' (the kernel copies every frame as such). With the iPhone X's
-        # "P3", iOS picks deep-colour surfaces: with a GPU renderer CoreAnimation draws the screen
-        # in 'b3a8' (apollo boots 35/36: the CoreAnimation bridge, backboardd crash loop), and
-        # MaterialKit's 'b3a8' / CoreAnimation's 'w30r' snapshots are ones its software renderer
-        # cannot draw into (white dock backgrounds; as ios-sailfish found). MobileGestalt reads
-        # these two at the first boot of a root.
-        product_props = [(k, cstr('sRGB') if k in ('artwork-display-gamut', 'display-gamut') else v)
-                         for k, v in product_props]
+    # Display gamut is intentionally omitted: the IN2013 panel's active color mode
+    # and ABL framebuffer encoding have not been confirmed from the live handoff.
     if product_props and artwork_subtype is not None:
-        # --artwork-subtype N: MobileGestalt's ArtworkDeviceSubType comes from /product's artwork-device-subtype.
-        # 2556 (iPhone 14 Pro) is what makes iOS 16 draw the Dynamic Island (the "Nugget"/Cowabunga trick, done
-        # here at the source instead of in MobileGestalt's cache). Takes effect once the cache is rebuilt:
-        # add --files-from tools/root-files/mgcache-reset.txt for that one boot.
+        # Add an artwork subtype only when an explicit IN2013/UI mapping is supplied.
         product_props = [(k, v) for k, v in product_props if k != 'artwork-device-subtype'] + \
                         [('artwork-device-subtype', u32(artwork_subtype))]
-    # /product/haptics, as the iPhone X has it (xnu 0146; hakios-apollo's mkidentity.py copies it too): MobileGestalt's
-    # DeviceSupportsClosedLoopHaptics. With it iOS plays its vibrations and feedbacks as waveforms on the audio
-    # server's "Actuator" device (userland/audio), which sweet_haptic.c plays on the motor (apollo_haptic=5).
-    haptics = d22ap_product(child='haptics') if product_props else None
-    if product_props and haptics is None:
-        print('warning: the D22AP tree has no /product/haptics: iOS will not play haptics', file=sys.stderr)
-    product = [node('product', [ph()] + product_props, [node('haptics', [ph()] + haptics)] if haptics else [])] \
-        if product_props else []
+    # Do not copy D22AP /product/haptics: 0173 keeps Apollo haptics disabled on IN2013.
+    product = [node('product', [ph()] + product_props)] if product_props else []
 
     # Panic log region. /pram reg = <phys size>; it sits just above the
     # dram-size we expose, so XNU maps it but never allocates into it.
@@ -329,7 +333,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
         ('manufacturer', cstr('Apple Inc.')),
         ('#address-cells', u32(2)),
         ('#size-cells', u32(2)),
-    ], [chosen, defaults, cpus, arm_io, fbcon, buttons, pram] + product + ([] if qemu else [ufs]) +
+    ], [chosen, defaults, cpus, arm_io] + ([fbcon] if (not qemu and fb_verified) else []) + [buttons, pram] + product + ([] if qemu else [ufs]) +
        ([node('sweet-touch', [ph(), ('firmware', touch_fw)])] if touch_fw else []) +
        ([node('sweet-gpu', [ph(), ('gmu-firmware', gmu_fw)] + list(gpu_extra))] if gmu_fw else []) +
        ([node('sweet-wifi', [ph()] + list(wifi))] if wifi else []) +
@@ -501,8 +505,9 @@ if __name__ == '__main__':
                  'the boot image would grow too much')
     if files:
         print(f'files for the root: {len(files)}, {sum(len(d) for _, d, _ in files) / 1048576:.1f} MiB', file=sys.stderr)
-    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
-                 gpu_extra=gpu_extra, p3='--p3' in sys.argv, native_display='--native-display' in sys.argv,
+    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv,
+                 fb_verified='--fb-verified' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
+                 gpu_extra=gpu_extra, native_display='--native-display' in sys.argv,
                  display_height=int(sys.argv[sys.argv.index('--display-height') + 1]) if '--display-height' in sys.argv else None,
                  artwork_subtype=int(sys.argv[sys.argv.index('--artwork-subtype') + 1]) if '--artwork-subtype' in sys.argv else None,
                  files=files, deletes=deletes, lists=lists, wifi=wifi, macs=macs, bt=bt,

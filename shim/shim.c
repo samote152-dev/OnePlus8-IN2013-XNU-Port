@@ -104,15 +104,19 @@ static void delay_ms(unsigned ms)
 
 static void __attribute__((noreturn)) reset(unsigned after_s)
 {
-	con_skip();
-	con_str("RESET", after_s > 20 ? "in 40s" : "in 20s");
-	delay_ms(after_s * 1000);
-	wr32(IMEM_RESTART_REASON, RESTART_BOOTLOADER);
-	__asm__ volatile("dsb sy" ::: "memory");
-	smc(PSCI_SYSTEM_RESET, 0, 0, 0);
-	wr32(PSHOLD, 0);
-	for (;;)
-		__asm__ volatile("wfe");
+#ifdef SWEET_QEMU
+    (void)after_s;
+    for (;;) __asm__ volatile("wfe");
+#else
+    con_skip();
+    con_str("RESET", after_s > 20 ? "in 40s" : "in 20s");
+    delay_ms(after_s * 1000);
+    wr32(IMEM_RESTART_REASON, RESTART_BOOTLOADER);
+    __asm__ volatile("dsb sy" ::: "memory");
+    smc(PSCI_SYSTEM_RESET, 0, 0, 0);
+    wr32(PSHOLD, 0);
+    for (;;) __asm__ volatile("wfe");
+#endif
 }
 
 /* ---- exceptions ---- */
@@ -373,6 +377,14 @@ static uint32_t to_us(uint64_t ticks)
 
 void shim_main(uint64_t dtb)
 {
+#ifdef SWEET_QEMU
+    stage = "loader";
+    con_clear(RED);
+    con_str("SHIM", "QEMU virt UART smoke test");
+    const char *why = loader_boot(dtb);
+    con_str("LOADER", why);
+    for (;;) __asm__ volatile("wfe");
+#else
 	struct mmu_info mi;
 
 	/* An xnu payload in the ramdisk means: boot it (MMU stays off). */
@@ -433,4 +445,5 @@ void shim_main(uint64_t dtb)
 
 	stage = "done";
 	reset(40);
+#endif
 }

@@ -1,0 +1,77 @@
+name: qemu-smoke
+
+on:
+  push:
+    branches: [integration/unixnu-kebab-reference]
+    paths:
+      - "tools/qemu-sweet.py"
+      - "tools/mkadt-in2013.py"
+      - "tools/mkpayload.py"
+      - "tools/adt.py"
+      - "shim/**"
+      - "xnu/patches/**"
+      - "build/target-profile.toml"
+      - ".github/workflows/xnu.yml"
+      - ".github/workflows/qemu-smoke.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  qemu-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm clang llvm lld clang lld llvm
+
+      - name: Wait for the XNU build from the integration branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RUN_ID=""
+          for attempt in $(seq 1 60); do
+            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/xnu.yml/runs?branch=integration%2Funixnu-kebab-reference&per_page=50" --jq ".workflow_runs[] | select(.head_sha == \"${GITHUB_SHA}\" and .event == \"push\") | .id" | head -n1)"
+            if [ -n "$RUN_ID" ]; then break; fi
+            sleep 10
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "No XNU push workflow run found for exact commit ${GITHUB_SHA}" >&2
+            exit 1
+          fi
+          echo "Waiting for XNU workflow run $RUN_ID for ${GITHUB_SHA}"
+          gh run watch "$RUN_ID" --exit-status --interval 15
+          echo "XNU_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Download XNU kernel artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download "$XNU_RUN_ID" --name xnu-kernel --dir artifacts
+          test -s artifacts/kernel.development.instantnoodle
+          file artifacts/kernel.development.instantnoodle | grep -E 'Mach-O.*arm64'
+
+      - name: Run QEMU smoke test
+        run: |
+          python3 tools/qemu-sweet.py \
+            --kernel artifacts/kernel.development.instantnoodle \
+            --out-dir build/qemu-smoke \
+            --timeout 45
+
+      - name: Upload QEMU logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-smoke-logs
+          path: |
+            build/qemu-smoke/
+            shim/out/
+          if-no-files-found: warn

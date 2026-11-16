@@ -194,7 +194,7 @@ diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
  
  	if (debug_boot_arg) {
  		patch_low_glo();
-@@ -535,9 +536,15 @@
+@@ -535,9 +536,12 @@
  	PE_consistent_debug_inherit();
  
  	/* Setup debugging output. */
@@ -204,9 +204,6 @@ diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
  	kernel_startup_initialize_upto(STARTUP_SUB_KPRINTF);
  	kprintf("kprintf initialized\n");
 +	sweet_early_mark(20, "kprintf startup complete");
-+	if (serial_exists) {
-+		sweet_early_disable();
-+	}
  
  	serialmode = 0;
  	if (PE_parse_boot_argn("serial", &serialmode, sizeof(serialmode))) {

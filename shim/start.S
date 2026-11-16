@@ -9,7 +9,7 @@ _head:
 	.long	0			/* code1 */
 	.quad	0			/* text_offset */
 	.quad	_end			/* image_size (linked at 0) */
-	.quad	0xa			/* flags: LE, 4K pages, place anywhere */
+	.quad	0xc			/* flags: LE, 16K pages, place anywhere */
 	.quad	0			/* res2 */
 	.quad	0			/* res3 */
 	.quad	0			/* res4 */

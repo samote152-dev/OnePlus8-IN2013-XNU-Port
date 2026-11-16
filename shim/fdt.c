@@ -1,84 +1,135 @@
 /*
- * Just enough flattened-device-tree parsing to find what ABL put in
- * /chosen (initrd location). Big-endian, 4-byte aligned tokens.
+ * Bounded flattened-device-tree parser for the ABL-provided FDT.
+ * Only reads /chosen u32/u64 properties; malformed input fails closed.
  */
+#include <stdint.h>
 #include "fdt.h"
 
-#define FDT_MAGIC	0xd00dfeed
-#define FDT_BEGIN_NODE	1
-#define FDT_END_NODE	2
-#define FDT_PROP	3
-#define FDT_NOP		4
-#define FDT_END		9
+#define FDT_MAGIC       0xd00dfeedU
+#define FDT_BEGIN_NODE  1U
+#define FDT_END_NODE    2U
+#define FDT_PROP        3U
+#define FDT_NOP         4U
+#define FDT_END         9U
+#define FDT_HEADER_SIZE 40U
 
 static uint32_t be32(uintptr_t a)
 {
-	return __builtin_bswap32(*(volatile uint32_t *)a);
+    return __builtin_bswap32(*(volatile const uint32_t *)a);
 }
 
-static int streq(const char *a, const char *b)
+static int range_ok(uint32_t off, uint32_t len, uint32_t total)
 {
-	while (*a && *a == *b)
-		a++, b++;
-	return *a == *b;
+    return off <= total && len <= total - off;
 }
 
-static uintptr_t align4(uintptr_t a)
+static int bounded_string_eq(uintptr_t p, uintptr_t end, const char *s)
 {
-	return (a + 3) & ~3UL;
+    while (p < end && *s) {
+        char c = *(volatile const char *)p++;
+        if (c != *s++)
+            return 0;
+    }
+    return p < end && *(volatile const char *)p == 0 && *s == 0;
 }
 
-static uintptr_t skip_str(uintptr_t p)
+static uintptr_t align4(uintptr_t p)
 {
-	/* byte loads are fine on Device memory as long as they are aligned to 1 */
-	while (*(volatile char *)p)
-		p++;
-	return p + 1;
+    if (p > UINTPTR_MAX - 3U)
+        return UINTPTR_MAX;
+    return (p + 3U) & ~(uintptr_t)3U;
 }
 
 int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out)
 {
-	if (!fdt || be32(fdt) != FDT_MAGIC)
-		return 0;
-	uintptr_t p = fdt + be32(fdt + 8);		/* off_dt_struct */
-	uintptr_t strings = fdt + be32(fdt + 12);	/* off_dt_strings */
-	int depth = 0, in_chosen = 0;
+    if (!fdt || !prop || !out || fdt > UINTPTR_MAX - FDT_HEADER_SIZE ||
+        be32(fdt) != FDT_MAGIC)
+        return 0;
 
-	for (;;) {
-		uint32_t tok = be32(p);
-		p += 4;
-		switch (tok) {
-		case FDT_BEGIN_NODE: {
-			const char *name = (const char *)p;
-			depth++;
-			in_chosen = depth == 2 && streq(name, "chosen");
-			p = align4(skip_str(p));
-			break;
-		}
-		case FDT_END_NODE:
-			if (in_chosen)
-				return 0;
-			depth--;
-			break;
-		case FDT_PROP: {
-			uint32_t len = be32(p), nameoff = be32(p + 4);
-			uintptr_t val = p + 8;
-			if (in_chosen && streq((const char *)(strings + nameoff), prop)) {
-				if (len == 4)
-					*out = be32(val);
-				else if (len == 8)
-					*out = (uint64_t)be32(val) << 32 | be32(val + 4);
-				else
-					return 0;
-				return 1;
-			}
-			p = align4(val + len);
-			break;
-		}
-		case FDT_NOP:
-			break;
-		default:	/* FDT_END or garbage */
-			return 0;
-		}
-	}
+    uint32_t total = be32(fdt + 4);
+    uint32_t struct_off = be32(fdt + 8);
+    uint32_t strings_off = be32(fdt + 12);
+    uint32_t strings_size = be32(fdt + 32);
+    uint32_t struct_size = be32(fdt + 36);
+
+    if (total < FDT_HEADER_SIZE || fdt > UINTPTR_MAX - total ||
+        (struct_off & 3U) ||
+        !range_ok(struct_off, struct_size, total) ||
+        !range_ok(strings_off, strings_size, total))
+        return 0;
+
+    uintptr_t struct_p = fdt + struct_off;
+    uintptr_t struct_end = struct_p + struct_size;
+    uintptr_t strings = fdt + strings_off;
+    uintptr_t strings_end = strings + strings_size;
+    uintptr_t p = struct_p;
+    unsigned depth = 0;
+    unsigned chosen_depth = 0;
+
+    while (p <= struct_end && struct_end - p >= 4) {
+        uint32_t tok = be32(p);
+        p += 4;
+
+        switch (tok) {
+        case FDT_BEGIN_NODE: {
+            uintptr_t name_end = p;
+            while (name_end < struct_end &&
+                   *(volatile const char *)name_end)
+                name_end++;
+            if (name_end == struct_end)
+                return 0;
+            depth++;
+            if (depth == 2 &&
+                bounded_string_eq(p, name_end + 1, "chosen"))
+                chosen_depth = depth;
+            p = align4(name_end + 1);
+            if (p > struct_end)
+                return 0;
+            break;
+        }
+        case FDT_END_NODE:
+            if (!depth)
+                return 0;
+            if (depth == chosen_depth)
+                chosen_depth = 0;
+            depth--;
+            break;
+
+        case FDT_PROP: {
+            if (struct_end - p < 8 || !depth)
+                return 0;
+            uint32_t len = be32(p);
+            uint32_t nameoff = be32(p + 4);
+            p += 8;
+            if (len > (uint32_t)(struct_end - p) ||
+                nameoff >= strings_size)
+                return 0;
+
+            uintptr_t name = strings + nameoff;
+            if (chosen_depth && depth == chosen_depth &&
+                bounded_string_eq(name, strings_end, prop)) {
+                if (len == 4) {
+                    *out = be32(p);
+                    return 1;
+                }
+                if (len == 8) {
+                    *out = ((uint64_t)be32(p) << 32) | be32(p + 4);
+                    return 1;
+                }
+                return 0;
+            }
+            p = align4(p + len);
+            if (p > struct_end)
+                return 0;
+            break;
+        }
+        case FDT_NOP:
+            break;
+        case FDT_END:
+            return 0;
+        default:
+            return 0;
+        }
+    }
+    return 0;
 }

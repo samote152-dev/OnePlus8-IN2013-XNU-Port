@@ -1,0 +1,125 @@
+# Extend IN2013 early framebuffer diagnostics through arm_init().
+# Generated against the actual XNU tree after repository patches 0001-0173.
+--- a/osfmk/arm64/sweet_early.c
++++ b/osfmk/arm64/sweet_early.c
+@@ -86,18 +86,21 @@
+ 	}
+ }
+ 
+ void
+ sweet_early_mark(unsigned int stage, const char *label)
+ {
+-	if (early_disabled || stage > 20) {
++	if (early_disabled || stage > 31) {
+ 		return;
+ 	}
+ 	uint32_t color = 0xff00ff00u | ((stage & 7u) * 32u << 16);
++	const unsigned int bar_slots = (EARLY_WIDTH + 47u) / 48u;
++	const unsigned int bar_x = (stage % bar_slots) * 48u;
++	const unsigned int bar_end = (bar_x + 48u < EARLY_WIDTH) ? bar_x + 48u : EARLY_WIDTH;
+ 	for (unsigned int y = EARLY_HEIGHT - 32; y < EARLY_HEIGHT; y++) {
+-		for (unsigned int x = stage * 48; x < (stage + 1) * 48; x++) {
++		for (unsigned int x = bar_x; x < bar_end; x++) {
+ 			EARLY_FB[y * EARLY_STRIDE + x] = color;
+ 		}
+ 	}
+ 	__asm__ volatile("dsb sy" ::: "memory");
+ 	sweet_early_string("SWEET EARLY ");
+ 	if (stage >= 10) {
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -571,57 +571,66 @@
+ 		}
+ 		serial_set_on_demand(on_demand);
+ 	}
+ 	if (kern_feature_override(KF_SERIAL_OVRD)) {
+ 		serialmode = 0;
+ 	}
++	sweet_early_mark(21, "serial mode configured");
+ 
+ 	/* Start serial if requested and a serial device was enumerated in serial_init(). */
+ 	if ((serialmode & SERIALMODE_OUTPUT) && serial_exists) {
+ 		serial_console_enabled = true;
+ 		(void)switch_to_serial_console(); /* Switch into serial mode from video console */
+ 		disableConsoleOutput = FALSE;     /* Allow printfs to happen */
+ 	}
+ 	PE_create_console();
++	sweet_early_mark(22, "console created");
+ 
+ 	/* setup console output */
+ 	PE_init_printf(FALSE);
++	sweet_early_mark(23, "printf console initialized");
+ 
+ #if __arm64__
+ #if DEBUG
+ 	dump_kva_space();
+ #endif
+ #endif
+ 
+ 	cpu_machine_idle_init(TRUE);
++	sweet_early_mark(24, "machine idle initialized");
+ 
+ 	PE_init_platform(TRUE, &BootCpuData);
++	sweet_early_mark(25, "late platform init done");
+ 
+ #if __arm64__
+ 	extern bool cpu_config_correct;
+ 	if (!cpu_config_correct) {
+ 		panic("The cpumask=N boot arg cannot be used together with cpus=N, and the boot CPU must be enabled");
+ 	}
+ 
+ 	ml_map_cpu_pio();
++	sweet_early_mark(26, "CPU PIO mapped");
+ 
+ #if APPLE_ARM64_ARCH_FAMILY
+ 	configure_late_apple_regs();
+ #endif
+ 
+ #endif
+ 
+ 	cpu_timebase_init(TRUE);
++	sweet_early_mark(27, "CPU timebase initialized");
+ 
+ #if KPERF
+ 	/* kptimer_curcpu_up() must be called after cpu_timebase_init */
+ 	kptimer_curcpu_up();
+ #endif /* KPERF */
+ 
+ 	PE_init_cpu();
++	sweet_early_mark(28, "PE_init_cpu done");
+ 	fiq_context_init(TRUE);
++	sweet_early_mark(29, "FIQ context initialized");
+ 
+ 
+ #if HIBERNATION
+ 	pal_hib_init();
+ #endif /* HIBERNATION */
+ 
+@@ -644,12 +653,13 @@
+ 	if (SecureDTGetProperty(chosen, "dram-size", (void const **)&dram_size, &dt_entry_size) != kSuccess) {
+ 		panic("%s: Unable to find 'dram-size' entry in the 'chosen' DT node", __FUNCTION__);
+ 	}
+ 
+ 	gDramBase = *dram_base;
+ 	gDramSize = *dram_size;
++	sweet_early_mark(30, "DRAM properties loaded");
+ 
+ 	/*
+ 	 * Initialize the stack protector for all future calls
+ 	 * to C code. Since kernel_bootstrap() eventually
+ 	 * switches stack context without returning through this
+ 	 * function, we do not risk failing the check even though
+@@ -657,12 +667,13 @@
+ 	 */
+ 	__stack_chk_guard = (unsigned long)early_random();
+ 	/* Zero a byte of the protector to guard
+ 	 * against string vulnerabilities
+ 	 */
+ 	__stack_chk_guard &= ~(0xFFULL << 8);
++	sweet_early_mark(31, "entering machine_startup");
+ 	machine_startup(args);
+ }
+ 
+ /*
+  * Routine:        arm_init_cpu
+  * Function:

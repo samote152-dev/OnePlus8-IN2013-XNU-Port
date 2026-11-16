@@ -1,6 +1,45 @@
+#ifdef SWEET_QEMU
+/* QEMU virt PL011 UART console; avoids touching the IN2013-only framebuffer. */
+#include "console.h"
+#define UART_BASE 0x09000000UL
+#define UART_DR   (*(volatile uint32_t *)(UART_BASE + 0x00))
+#define UART_FR   (*(volatile uint32_t *)(UART_BASE + 0x18))
+#define UART_IBRD (*(volatile uint32_t *)(UART_BASE + 0x24))
+#define UART_FBRD (*(volatile uint32_t *)(UART_BASE + 0x28))
+#define UART_LCRH (*(volatile uint32_t *)(UART_BASE + 0x2c))
+#define UART_CR   (*(volatile uint32_t *)(UART_BASE + 0x30))
+volatile uint32_t *con_fb = 0; /* QEMU uses UART, never the IN2013 framebuffer. */
+static int uart_ready;
+static void uart_init(void) {
+    if (uart_ready) return;
+    UART_CR = 0; UART_IBRD = 13; UART_FBRD = 1; UART_LCRH = 0x70; UART_CR = 0x301;
+    uart_ready = 1;
+}
+static void uart_putc(char c) {
+    uart_init();
+    if (c == '\n') { while (UART_FR & (1U << 5)) {} UART_DR = '\r'; }
+    while (UART_FR & (1U << 5)) {}
+    UART_DR = (uint32_t)(unsigned char)c;
+}
+static void uart_puts(const char *s) { while (*s) uart_putc(*s++); }
+static void fmt_hex(char *buf, uint64_t v, int digits) {
+    static const char hex[] = "0123456789ABCDEF";
+    for (int i=0;i<digits;i++) buf[i]=hex[(v>>(4*(digits-1-i)))&0xf];
+    buf[digits]=0;
+}
+void con_clear(uint32_t bg) { (void)bg; uart_puts("\n--- console clear ---\n"); }
+void con_skip(void) { uart_putc('\n'); }
+void con_str(const char *label,const char *s) { uart_puts(label); uart_puts(": "); uart_puts(s); uart_putc('\n'); }
+void con_hex(const char *label,uint64_t v) { char b[17]; fmt_hex(b,v,16); con_str(label,b); }
+void con_hex2(const char *label,const char *a,uint32_t va,const char *b,uint32_t vb) {
+    char h[9]; uart_puts(label); uart_puts(": "); uart_puts(a); fmt_hex(h,va,8); uart_puts(h);
+    if (b) { uart_puts(" "); uart_puts(b); fmt_hex(h,vb,8); uart_puts(h); }
+    uart_putc('\n');
+}
+#elif defined(SWEET_FB_VERIFIED)
 /*
- * Minimal text console on the ABL splash framebuffer. With the MMU off
- * every access is Device memory, so stay aligned (-mstrict-align).
+ * Optional framebuffer console. Define SWEET_FB_VERIFIED only after the
+ * IN2013 ABL handoff confirms base, stride, pixel format and ownership.
  */
 #include "console.h"
 #include "font.h"
@@ -95,3 +134,19 @@ void con_hex2(const char *label, const char *a, uint32_t va, const char *b, uint
 	}
 	row++;
 }
+
+#else
+/* Headless production default: the IN2013 framebuffer stride/format handoff
+ * has not been verified, so no MMIO writes to the splash region are allowed.
+ */
+#include "console.h"
+volatile uint32_t *con_fb;
+void con_clear(uint32_t bg) { (void)bg; }
+void con_skip(void) {}
+void con_str(const char *label, const char *s) { (void)label; (void)s; }
+void con_hex(const char *label, uint64_t value) { (void)label; (void)value; }
+void con_hex2(const char *label, const char *a, uint32_t va, const char *b, uint32_t vb)
+{
+    (void)label; (void)a; (void)va; (void)b; (void)vb;
+}
+#endif /* SWEET_QEMU || SWEET_FB_VERIFIED */
