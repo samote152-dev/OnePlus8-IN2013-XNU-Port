@@ -1,93 +1,53 @@
 # Extend IN2013 early diagnostics into machine_startup() and kernel_bootstrap().
-# This follows marker 31 ("entering machine_startup") and narrows the next stall.
+# Follows marker 31 ("entering machine_startup") to isolate the next stall.
 diff --git a/osfmk/arm64/sweet_early.c b/osfmk/arm64/sweet_early.c
 --- a/osfmk/arm64/sweet_early.c
 +++ b/osfmk/arm64/sweet_early.c
-@@ -89,7 +89,7 @@ sweet_early_mark(unsigned int stage, const char *label)
- {
+@@ -91,1 +91,1 @@
 -	if (early_disabled || stage > 31) {
 +	if (early_disabled || stage > 40) {
- 		return;
- 	}
- 	uint32_t color = 0xff00ff00u | ((stage & 7u) * 32u << 16);
 diff --git a/osfmk/arm64/machine_routines.c b/osfmk/arm64/machine_routines.c
 --- a/osfmk/arm64/machine_routines.c
 +++ b/osfmk/arm64/machine_routines.c
-@@ -27,6 +27,7 @@
- 
+@@ -30,1 +30,2 @@
  #include <arm64/machine_machdep.h>
 +#include <arm64/sweet_early.h>
- #include <arm64/proc_reg.h>
- #include <arm/machine_cpu.h>
- #include <arm/cpu_internal.h>
-@@ -476,6 +477,7 @@
- void
+@@ -476,2 +477,3 @@
  machine_startup(__unused boot_args * args)
  {
 +	sweet_early_mark(32, "machine_startup entered");
- #if defined(HAS_IPI) && (DEVELOPMENT || DEBUG)
- 	if (!PE_parse_boot_argn("fastipi", &gFastIPI, sizeof(gFastIPI))) {
- 		gFastIPI = 1;
-@@ -485,10 +487,13 @@
- 
- 
+@@ -485,1 +487,2 @@
  	machine_conf();
 +	sweet_early_mark(33, "machine_conf done");
- 
- 
- 	/*
- 	 * Kick off the kernel bootstrap.
+@@ -489,2 +492,3 @@
  	 */
 +	sweet_early_mark(34, "calling kernel_bootstrap");
  	kernel_bootstrap();
- 	/* NOTREACHED */
- }
 diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
 --- a/osfmk/kern/startup.c
 +++ b/osfmk/kern/startup.c
-@@ -76,6 +76,7 @@
- 
+@@ -79,1 +79,2 @@
  #include <debug.h>
 +#include <arm64/sweet_early.h>
- #include <mach_kdp.h>
- 
- #include <mach/boolean.h>
-@@ -422,6 +423,7 @@
+@@ -422,5 +423,6 @@
  kernel_bootstrap(void)
  {
  	kern_return_t   result;
  	thread_t        thread;
  	char            namep[16];
 +	sweet_early_mark(35, "kernel_bootstrap entered");
- 
- 	printf("%s\n", version); /* log kernel version */
- 
+@@ -432,1 +434,2 @@
  	scale_setup();
 +	sweet_early_mark(36, "scale_setup done");
- 
- 	kernel_bootstrap_log("vm_mem_bootstrap");
+@@ -436,1 +439,2 @@
  	vm_mem_bootstrap();
 +	sweet_early_mark(37, "vm_mem_bootstrap done");
- 
- 	machine_info.memory_size = (uint32_t)mem_size;
-@@ -476,9 +479,11 @@
- 
- 	kernel_bootstrap_log("console_init");
+@@ -476,1 +480,2 @@
  	console_init();
 +	sweet_early_mark(38, "console_init done");
- 
- 	kernel_bootstrap_log("stackshot_init");
- 	stackshot_init();
- 
- 	kernel_bootstrap_log("sched_init");
+@@ -482,1 +487,2 @@
  	sched_init();
 +	sweet_early_mark(39, "sched_init done");
- 
- #if CONFIG_MACF
-@@ -496,6 +501,7 @@
- 	 */
- 	kernel_bootstrap_log("PMAP_ACTIVATE_KERNEL");
+@@ -496,1 +502,2 @@
  	PMAP_ACTIVATE_KERNEL(master_cpu);
 +	sweet_early_mark(40, "kernel pmap activated");
- 
- 	kernel_bootstrap_log("mapping_free_prime");
